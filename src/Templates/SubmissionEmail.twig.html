@@ -1,0 +1,108 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Sponsorship Request Summary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body style="margin: 0; padding: 0;">
+
+<h1>New Sponsorship Request!</h1>
+<h2>{{ submission.event_name }}</h2>
+<table>
+<tr>
+    <td style="padding: 15px; border-width: 2px; border-style: solid; border-radius: 5px; {{ submission.getStyle('Recommendation') }}">
+        <h3>{{ submission.getMinimumsText() }}</h3>
+        <h3>{{ submission.getRecommendationsText() }}</h3>
+    </td>
+</tr>
+</table>
+<h3>Basic Info</h3>
+<table>
+    {% for each in data["short"] %}
+        <tr>
+            <td>{{ each.question }}</td>
+            <td>{{ each.answer }}</td>
+        </tr>
+    {% endfor %}
+</table>
+<table>
+    {% for each in data["long"] %}
+        <tr>
+            <td style="font-weight: bold;">{{ each.question }}</td>
+        </tr><tr>
+            <td>{{ each.answer }}</td>
+        </tr>
+    {% endfor %}
+</table>
+{% if not submission.minimums %}
+<table>
+    <tr>
+        <td style="padding: 15px;
+                border-width: 2px;
+                border-style: solid;
+                border-radius: 5px;
+                {{ submission.getStyle('Recommendation') }}">
+
+        <h3>Missing Minimums</h3>
+
+        <ul>
+            {% set missingMinimums = submission.getMissingMinimums() %}
+            {% for each in missingMinimums %}
+                <li>{{ each.question }}</li>
+                <ul>
+                    {% for item in each.items %}
+                        <li> {{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        </ul>
+        </td>
+    </tr>
+</table>
+{% endif %}
+{% if requests is not empty %}
+<table>
+    <tr>
+        <td style="padding: 15px;
+                border-width: 2px;
+                border-style: solid;
+                border-radius: 5px;
+                {{ submission.getStyle('Requests') }}">
+
+            <h3>Requests for Additional Information</h3>
+
+            <ul>
+                {% for each in requests %}
+                <li>{{ each }}</li>
+                {% endfor %}
+            </ul>
+        </td>
+    </tr>
+</table>
+{% endif %}
+{% if commitments is not empty %}
+<table>
+    <tr>
+        <td style="padding: 15px;
+                border-width: 2px;
+                border-style: solid;
+                border-radius: 5px;
+                {{ submission.getStyle('Commitments') }}">
+
+            <h3>Advanced Commitments</h3>
+
+            <ul>
+                {% for each in commitments %}
+                <li style="list-style: none;">{{ each.question }}</li>
+                <ul>
+                    <li style="list-style: default;"> {{ each.answer }}</li>
+                </ul>
+                {% endfor %}
+            </ul>
+        </td>
+    </tr>
+</table>
+{% endif %}
+</body>
+</html>
