@@ -159,7 +159,7 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $submissions = Submission::where('state', 'processed')->get();
+        $submissions = Submission::where('state', 'unprocessed')->get();
         foreach ($submissions as $submission)
         {
             $submission->extractBasicData();

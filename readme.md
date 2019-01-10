@@ -3,6 +3,7 @@ This tool pulls info from SurveyMonkey survey submissions,
 * delivers a formatted report of that analysis as well as selected raw data to the targeted recipient via SendGrid
 * in order to facilitate the evaluation of sponsorship requests based on diversity and inclusion standards.
 
+composer install...
 
 Installation
 1. create database
