@@ -4,27 +4,28 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 
 class Submission extends Eloquent
 {
+    // compared against 'score' value to determine 'recommended_level'
     protected $levelMinimums = [ 4, 8, 12, 16];
 
     protected $attendanceRanks = [
         1 => [
-            'minimum' => 0,
+            'minimum' => 100,
             'bias' => -0.25
         ],
         2 => [
-            'minimum' => 4,
+            'minimum' => 200,
             'bias' => 0
         ],
         3 => [
-            'minimum' => 8,
-            'bias' => 0.25
+            'minimum' => 600,
+            'bias' => 0.4
         ],
         4 => [
-            'minimum' => 12,
-            'bias' => 0.6
+            'minimum' => 1200,
+            'bias' => 0.7
         ],
         5 => [
-            'minimum' => 16,
+            'minimum' => 3000,
             'bias' => 0.75
         ]
     ];
@@ -37,7 +38,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'status', 'event_date', 'speaker_count', 'event_name', 'requests'
+        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'event_date', 'speaker_count', 'event_name', 'requests'
 
     ];
 
@@ -56,7 +57,7 @@ class Submission extends Eloquent
         'last_email' => null,
         'event_date' => null,
         'event_name' => null,
-        'status' => 'unprocessed'
+        'state' => 'unprocessed'
     ];
 
     public $primaryKey = 'respondent_id';
@@ -96,13 +97,24 @@ class Submission extends Eloquent
         return;
     }
 
+    public function getLevelMinimums()
+    {
+        $levelMinimums = [];
+        for ($i = 1; $i < 6; $i++) {
+            $percent = $i / 10;
+            $levelMinimums[$i] = floor($this->max_score * $percent);
+        }
+        return $levelMinimums;
+    }
+
     public function getRecommendedLevel()
     {
         $score = $this->score;
         $requestCount = $this->requests;
+        $levelMinimums = $this->getLevelMinimums();
 
         $level = 0;
-        foreach ($this->levelMinimums as $minimum) {
+        foreach ($levelMinimums as $minimum) {
             $level++;
             if ($score < $minimum) {
                 break;
@@ -114,7 +126,7 @@ class Submission extends Eloquent
                 $score < $this->levelMinimums[0]) {
                 return 0;
             }
-            if ($requestCount < $this->levelMinimums[0]) {
+            if ($score < $this->levelMinimums[0]) {
                 $level--;
             }
             $level--;
@@ -126,13 +138,18 @@ class Submission extends Eloquent
     public function getAttendanceRank()
     {
         $rank = 0;
-        foreach ($this->attendanceRanks as $rank) {
-            if ($this->attendee_estimate < $rank['minimum']) {
+        $estimate = $this->attendee_estimate;
+        if ($this->event_type == 'Hackathon') {
+            // trying to account for the different level of intensity for an attendee of a hackathon
+            // and how we perceive that value
+            $estimate = $estimate * 1.5;
+        }
+        foreach ($this->attendanceRanks as $each) {
+            if ($estimate < $each['minimum']) {
                 break;
             }
             $rank++;
         }
-
         return $rank;
     }
 
@@ -147,7 +164,6 @@ class Submission extends Eloquent
         $biasRank = in_array($rank, $valid) ? $rank : 1;
         $attendanceRanks = $this->attendanceRanks;
         $bias = $attendanceRanks[$biasRank]['bias'];
-
         $mod = $attendees * (1 - $bias);
         $cash = $mod * $level * 5;
 
@@ -160,14 +176,15 @@ class Submission extends Eloquent
 
     public function getMinimumsText()
     {
+        $eventType = $this->event_type;
         $this->generateRecommendations();
         if (!$this->minimums && $this->recommended_level == 0) {
-            return "This event does not meet the minimum diversity and inclusion standards we're hoping for.";
+            return "This $eventType does not meet the minimum diversity and inclusion standards we're hoping for.";
         }
         if (!$this->minimums) {
-            return "This event does not meet the minimum diversity and inclusion standards we're hoping for, but does seem to be putting in extra effort.";
+            return "This $eventType does not meet the minimum diversity and inclusion standards we're hoping for, but does seem to be putting in extra effort.";
         }
-        return "This event is already meeting our minimum standards for diversity and inclusion efforts!";
+        return "This $eventType is already meeting our minimum standards for diversity and inclusion efforts!";
     }
 
     public function getRecommendationsText()

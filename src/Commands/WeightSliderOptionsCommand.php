@@ -8,7 +8,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question as Prompt;
-
+/**
+ * This command allows you to set minimums for levels of slider answer.
+ * For example, if you gave a slider 3 levels with minimums of 10, 20, and 80, an answer of 45 would fall between level 2 and level 3 so it would be a 2 point answer.
+ */
 class WeightSliderOptionsCommand extends Command
 {
     protected $client;

@@ -40,10 +40,15 @@ class Question extends Eloquent
 
     public function getMaxValue()
     {
-        // multiple choice
         if ($this->attributes['min'] === null) {
-            $top = $this->choices()->orderBy('weight', 'desc')->firstOrFail();
-            return $top->weight;
+            try {
+                // multiple choice
+                $top = $this->choices()->orderBy('weight', 'desc')->firstOrFail();
+                return $top->weight;
+            } catch (\Exception $e) {
+                // text
+                return 0;
+            }
         }
         // slider
         return $this->levels()->count();

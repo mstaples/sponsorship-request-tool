@@ -7,7 +7,19 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use GuzzleHttp\Client;
-
+/**
+ * A SurveyMonkey survey is broken up into Pages of Questions.
+ * Defining the Logic of movement between pages allows multiple paths through the form.
+ * This has been used to allow some different questions depending on whether the submission is for a Conference, Hackathon, or Event.
+ * To assist in analysis, this tool also optionally associates pages as defining Minimum Standards or Basic Information.
+ *
+ * This command shows the operator the title of each Page and
+ * 1) the current settings for the page as being for Conferences, Hackathons, and/or Events
+ * 2) as well as whether the Page defines Minimum Standards or Basic Information
+ * 3) the operator may choose to keep those settings and move on to the next Question or change them.
+ *
+ * This command only needs to be run during initial setup or when the survey Pages have been changed
+ */
 class PullSurveyQuestionsCommand extends Command
 {
     protected $client;

@@ -105,7 +105,7 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('url');
                 $table->string('total_time');
                 $table->string('date_modified');
-                $table->string('status');
+                $table->string('state');
                 $table->string('devangel_email')->nullable();
                 $table->string('devangel_name')->nullable();
                 $table->string('last_email')->nullable();

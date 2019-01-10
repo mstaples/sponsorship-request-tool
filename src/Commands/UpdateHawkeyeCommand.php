@@ -45,7 +45,7 @@ class UpdateHawkeyeCommand extends Command
         $response = $this->client->request('POST', 'events', $headers)->getBody()->getContents();
         $response = json_decode($response, true);
 
-        $submissions = Submission::where('status', 'processed')->get();
+        $submissions = Submission::where('state', 'processed')->get();
         foreach ($submissions as $submission)
         {
             $data = [
@@ -59,7 +59,7 @@ class UpdateHawkeyeCommand extends Command
                 "addSelfAsDefaultAttendee" => true
             ];
 
-            $submission->status = "recorded";
+            $submission->state = "recorded";
             $submission->save();
 
             $output->writeln("Updated Hawkeye for: ".$submission->event_name);

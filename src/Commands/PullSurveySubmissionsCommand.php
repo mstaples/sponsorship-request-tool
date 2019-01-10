@@ -10,7 +10,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use GuzzleHttp\Client;
 
 use App\Object\Question;
-
+/**
+ * This command
+ * 1) pulls submissions to the survey monkey form,
+ * 2) saves completed submissions + answers to the db
+ */
 class PullSurveySubmissionsCommand extends Command
 {
     protected $client;
@@ -39,7 +43,7 @@ class PullSurveySubmissionsCommand extends Command
         $new->url = $apiSubmissionRecord['analyze_url'];
         $new->date_modified = $apiSubmissionRecord['date_modified'];
         $new->survey_id = getenv('SURVEY_ID');
-        $new->status = "unprocessed";
+        $new->state = "unprocessed";
         $new->save();
 
         return Submission::find($apiSubmissionRecord['id']);

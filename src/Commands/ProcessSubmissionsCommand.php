@@ -13,7 +13,14 @@ use GuzzleHttp\Client;
 use App\Object\Question;
 use Twig_Environment;
 use Twig_Loader_Filesystem;
-
+/**
+ * This command
+ * 1) determines if submission has met minimums,
+ * 2) determines advanced D&I commitments indicated by submission,
+ * 3) determines the max possible score, the submissions actual score, and pulls questions submission wanted more info on
+ * 4) requests recommendation info from submission object
+ * 5) bundles and formats this data into a summary info and recommendation email to the specified developer evangelist
+ */
 class ProcessSubmissionsCommand extends Command
 {
     protected $client;
@@ -57,8 +64,8 @@ class ProcessSubmissionsCommand extends Command
         $sendgrid = new \SendGrid(getenv('SENDGRID_API_KEY'));
         try {
             $response = $sendgrid->send($email);
-            print $response->statusCode() . "\n";
-            print $response->body() . "\n";
+            //print $response->statusCode() . "\n";
+            //print $response->body() . "\n";
         } catch (\Exception $e) {
             return 'Caught exception: '. $e->getMessage() ."\n";
         }
@@ -152,7 +159,7 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $submissions = Submission::where('status', 'unprocessed')->get();
+        $submissions = Submission::where('state', 'processed')->get();
         foreach ($submissions as $submission)
         {
             $submission->extractBasicData();
@@ -201,12 +208,16 @@ class ProcessSubmissionsCommand extends Command
                         ];
                     }
                     if (strpos($question->prompt_type, 'choice') !== false) {
-                        $choice = Choice::find($answer->choice_id);
-                        if (!$choice) {
+                        try {
+                            $choice = Choice::findOrFail($answer->choice_id);
+                        } catch (\Exception $e) {
+                            $output->writeln("choice id = ".$answer->choice_id);
                             $output->writeln("prompt type = ".$question->prompt_type);
                             $output->writeln("no matching choice record found");
+                            $output->writeln(var_dump($e));
                             break 3;
                         }
+
                         if ($choice->weight == 0) {
                             // no or request?
                             if ($answer->answer == $this->optOutAnswerText) {
@@ -234,10 +245,13 @@ class ProcessSubmissionsCommand extends Command
             $data = $this->getBasicData($submission);
 
             $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
-            $submission->status = "processed";
+            $submission->state = "processed";
             $submission->save();
 
             $output->writeln("Sent out DevAngel email for: ".$submission->event_name);
+            $output->writeln("Event type: ".$submission->event_type);
+            $output->writeln("score: ".$submission->score . " of ".$submission->max_score);
+            $output->writeln("attendee estimate: ".$submission->attendee_estimate);
         }
     }
 }

@@ -8,6 +8,13 @@ use Symfony\Component\Console\Question\Question as Prompt;
 
 use App\Object\Question;
 
+/**
+ * This command
+ * 1) locates the survey question where the organizer specifies which developer evangelist to submit the request to,
+ * 2) pulls in the possible choices from the survey, and
+ * 3) allows the command operator to associate a name and email address for each option.
+ * This information is later used to contact the developer evangelist selected when a new request is submitted.
+ */
 class AssociateDevangelsCommand extends Command
 {
     // the name of the command (the part after "php command.php")
