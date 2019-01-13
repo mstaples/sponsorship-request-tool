@@ -7,6 +7,7 @@ class Submission extends Eloquent
     // compared against 'score' value to determine 'recommended_level'
     protected $levelMinimums = [ 4, 8, 12, 16];
 
+    // the bias is an attempt to account for the decreased impact we can have per attendee at the larger events
     protected $attendanceRanks = [
         1 => [
             'minimum' => 100,
@@ -30,6 +31,15 @@ class Submission extends Eloquent
         ]
     ];
 
+    protected $eventTypeModifiers = [
+        // trying to account for the different level of intensity for an attendee of a hackathon
+        // and how we perceive that value
+        'Hackathon' => 1.5,
+        // Tech events that are neither Hackathons nor Conferences tend to have lower logistical requirements
+        // and have less overhead - trying to account for that on the assumption that they cost less per person to run
+        'Event' => 0.85
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -38,7 +48,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'event_date', 'speaker_count', 'event_name', 'requests'
+        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'start_date', 'end_date'
 
     ];
 
@@ -55,7 +65,8 @@ class Submission extends Eloquent
         'devangel_email' => null,
         'devangel_name' => null,
         'last_email' => null,
-        'event_date' => null,
+        'start_date' => null,
+        'end_date' => null,
         'event_name' => null,
         'state' => 'unprocessed'
     ];
@@ -76,6 +87,13 @@ class Submission extends Eloquent
         // set event type
         $answer = $this->answers()->where('question_id', getenv('EVENT_TYPE_QUESTION_ID'))->first();
         $this->event_type = $answer->answer;
+
+        // set start date and end date
+        $s = $this->answers()->where('question_id', getenv('START_DATE_QUESTION_ID'))->first();
+        $this->start_date = date('Y-m-d H:i:s', strtotime($s->answer));
+
+        $e = $this->answers()->where('question_id', getenv('END_DATE_QUESTION_ID'))->first();
+        $this->end_date = date('Y-m-d H:i:s', strtotime($e->answer));
 
         // set devangel name & email
         $answer = $this->answers()->where('question_id', getenv('DEVANGEL_QUESTION_ID'))->first();
@@ -139,10 +157,9 @@ class Submission extends Eloquent
     {
         $rank = 0;
         $estimate = $this->attendee_estimate;
-        if ($this->event_type == 'Hackathon') {
-            // trying to account for the different level of intensity for an attendee of a hackathon
-            // and how we perceive that value
-            $estimate = $estimate * 1.5;
+        $modifiers = $this->eventTypeModifiers;
+        if (array_key_exists($this->event_type, $modifiers)) {
+            $estimate = $estimate * $modifiers[$this->event_type];
         }
         foreach ($this->attendanceRanks as $each) {
             if ($estimate < $each['minimum']) {

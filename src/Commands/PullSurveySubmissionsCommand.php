@@ -137,6 +137,7 @@ class PullSurveySubmissionsCommand extends Command
                     }
                 }
             }
+            $submission->extractBasicData();
         }
 
         $output->writeln("Pulled in data from $submissionCount completed submissions");

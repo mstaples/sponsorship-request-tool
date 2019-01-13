@@ -118,7 +118,8 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->integer('recommended_level');
                 $table->integer('recommended_cash');
                 $table->integer('requests');
-                $table->timestamp('event_date')->nullable();
+                $table->timestamp('start_date')->nullable();
+                $table->timestamp('end_date')->nullable();
                 $table->timestamps();
             });
         }

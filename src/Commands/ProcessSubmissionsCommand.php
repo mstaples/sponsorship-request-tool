@@ -58,7 +58,9 @@ class ProcessSubmissionsCommand extends Command
         $email = new Mail();
         $email->setFrom("bot@sponsorship-requests.twilio", "Sponsorship Request Bot");
         $email->setSubject("New Sponsorship Request! " . $submission->event_name);
-        $email->addTo($submission->devangel_email, $submission->devangel_name);
+        // @TODO remember to change this back after testing
+        // $email->addTo($submission->devangel_email, $submission->devangel_name);
+        $email->addTo("mstaples@twilio.com", $submission->devangel_name);
         $email->addContent("text/plain", $textContent);
         $email->addContent("text/html", $htmlContent);
         $sendgrid = new \SendGrid(getenv('SENDGRID_API_KEY'));
@@ -159,11 +161,10 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $submissions = Submission::where('state', 'unprocessed')->get();
+        //$submissions = Submission::where('state', 'unprocessed')->get();
+        $submissions = Submission::all();
         foreach ($submissions as $submission)
         {
-            $submission->extractBasicData();
-
             // set minimums
             $minimums = $this->processMinimums($submission, $output);
             if (empty($minimums['no'])) {
