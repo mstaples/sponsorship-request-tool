@@ -58,9 +58,11 @@ class ProcessSubmissionsCommand extends Command
         $email = new Mail();
         $email->setFrom("bot@sponsorship-requests.twilio", "Sponsorship Request Bot");
         $email->setSubject("New Sponsorship Request! " . $submission->event_name);
-        // @TODO remember to change this back after testing
-        // $email->addTo($submission->devangel_email, $submission->devangel_name);
-        $email->addTo("mstaples@twilio.com", $submission->devangel_name);
+        if (getenv('MODE') == 'TEST') {
+            $email->addTo("mstaples@twilio.com", $submission->devangel_name);
+        } else {
+            $email->addTo($submission->devangel_email, $submission->devangel_name);
+        }
         $email->addContent("text/plain", $textContent);
         $email->addContent("text/html", $htmlContent);
         $sendgrid = new \SendGrid(getenv('SENDGRID_API_KEY'));
@@ -161,8 +163,11 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        //$submissions = Submission::where('state', 'unprocessed')->get();
-        $submissions = Submission::all();
+        if (getenv('MODE') == 'TEST') {
+            $submissions = Submission::all();
+        } else {
+            $submissions = Submission::where('state', 'unprocessed')->get();
+        }
         foreach ($submissions as $submission)
         {
             // set minimums
@@ -240,16 +245,16 @@ class ProcessSubmissionsCommand extends Command
             $submission->score = $responses['score'];
             $submission->max_score = $max;
             $submission->requests = count($responses['requests']);
+            $submission->generateRecommendations();
             $submission->save();
 
             // email developer evangelist
             $data = $this->getBasicData($submission);
-
-            $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
+            $status = $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
             $submission->state = "processed";
             $submission->save();
 
-            $output->writeln("Sent out DevAngel email for: ".$submission->event_name);
+            $output->writeln("Sent out DevAngel email for: ".$submission->event_name . " ($status)");
             $output->writeln("Event type: ".$submission->event_type);
             $output->writeln("score: ".$submission->score . " of ".$submission->max_score);
             $output->writeln("attendee estimate: ".$submission->attendee_estimate);

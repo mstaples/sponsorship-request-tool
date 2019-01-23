@@ -115,9 +115,12 @@ class PullSurveySubmissionsCommand extends Command
                                     continue;
                                 }
                                 $new->answer = $answer;
+                            } elseif ($answer_type == 'row_id') {
+                                continue;
                             } else {
                                 $choice = Choice::find($answer);
                                 if (!$choice) {
+                                    $output->writeln($questionText);
                                     $output->writeln("No such choice found! ".$answer);
                                     break;
                                 }

@@ -4,9 +4,6 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 
 class Submission extends Eloquent
 {
-    // compared against 'score' value to determine 'recommended_level'
-    protected $levelMinimums = [ 4, 8, 12, 16];
-
     // the bias is an attempt to account for the decreased impact we can have per attendee at the larger events
     protected $attendanceRanks = [
         1 => [
@@ -34,7 +31,7 @@ class Submission extends Eloquent
     protected $eventTypeModifiers = [
         // trying to account for the different level of intensity for an attendee of a hackathon
         // and how we perceive that value
-        'Hackathon' => 1.5,
+        'Hackathon' => 2,
         // Tech events that are neither Hackathons nor Conferences tend to have lower logistical requirements
         // and have less overhead - trying to account for that on the assumption that they cost less per person to run
         'Event' => 0.85
@@ -48,7 +45,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'start_date', 'end_date'
+        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date'
 
     ];
 
@@ -68,7 +65,8 @@ class Submission extends Eloquent
         'start_date' => null,
         'end_date' => null,
         'event_name' => null,
-        'state' => 'unprocessed'
+        'state' => 'unprocessed',
+        'shenanigans' => false
     ];
 
     public $primaryKey = 'respondent_id';
@@ -76,6 +74,37 @@ class Submission extends Eloquent
     public function answers()
     {
         return $this->hasMany('App\Object\Answer');
+    }
+
+    public function setEventType($eventType)
+    {
+        if ($eventType != 'Event') {
+            $this->event_type = $eventType;
+            return;
+        }
+        if ($this->attendee_estimate > 200 || $this->start_date != $this->end_date) {
+            $this->event_type = 'Conference';
+            $this->shenanigans = true;
+            return;
+        }
+        $this->event_type = $eventType;
+    }
+
+    public function setAttendeeEstimate($attendeeEstimate)
+    {
+        $this->attendee_estimate = $attendeeEstimate;
+        if ($this->attendee_estimate > 200 && $this->event_type == 'Event') {
+            $this->event_type = 'Conference';
+            $this->shenanigans = true;
+        }
+    }
+
+    public function setEndDate($endDate)
+    {
+        if ($endDate == $this->start_date && $this->event_type == 'Event') {
+            $this->event_type = 'Conference';
+            $this->shenanigans = true;
+        }
     }
 
     public function extractBasicData()
@@ -115,6 +144,7 @@ class Submission extends Eloquent
         return;
     }
 
+    //puts levels at 10%, 20%, 30%, 40%, and 50% of max_score
     public function getLevelMinimums()
     {
         $levelMinimums = [];
@@ -140,11 +170,11 @@ class Submission extends Eloquent
         }
 
         if (!$this->minimums) {
-            if ($requestCount < $this->levelMinimums[0] &&
-                $score < $this->levelMinimums[0]) {
+            if ($requestCount < $levelMinimums[1] &&
+                $score < $levelMinimums[1]) {
                 return 0;
             }
-            if ($score < $this->levelMinimums[0]) {
+            if ($score < $levelMinimums[1]) {
                 $level--;
             }
             $level--;
@@ -173,6 +203,7 @@ class Submission extends Eloquent
     public function generateRecommendations()
     {
         $attendees = $this->attendee_estimate;
+        $this->setAttendeeEstimate($attendees);
 
         $level = $this->getRecommendedLevel();
         $rank = $this->getAttendanceRank();
@@ -194,7 +225,6 @@ class Submission extends Eloquent
     public function getMinimumsText()
     {
         $eventType = $this->event_type;
-        $this->generateRecommendations();
         if (!$this->minimums && $this->recommended_level == 0) {
             return "This $eventType does not meet the minimum diversity and inclusion standards we're hoping for.";
         }
@@ -219,6 +249,15 @@ class Submission extends Eloquent
             return "This event seems to be planning a wonderfully diverse and inclusive event. It's recommended you consider a level ".$this->recommended_level . " sponsorship for this event, valued around $".number_format($this->recommended_cash).".";
         }
         return "This event seems to be planning a nice event. It's recommended you consider a level ".$this->recommended_level . " sponsorship for this event, valued around $".number_format($this->recommended_cash).".";
+    }
+
+    public function getShenanigansText()
+    {
+        if (!$this->shenanigans) {
+            return "";
+        }
+
+        return "Shenanigans! This was originally submitted as an Event, but was either too big or over too many days to not be considered a Conference. Since they did not access the Conference advanced D&I efforts options, and so may have a score which fails to accurately reflect their efforts.";
     }
 
     // return the inline css for the summary recommendation panel

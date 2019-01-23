@@ -110,6 +110,7 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('devangel_name')->nullable();
                 $table->string('last_email')->nullable();
                 $table->boolean('minimums');
+                $table->boolean('shenanigans');
                 $table->integer('commitments');
                 $table->integer('speaker_count');
                 $table->integer('attendee_estimate');

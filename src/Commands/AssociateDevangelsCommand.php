@@ -40,7 +40,7 @@ class AssociateDevangelsCommand extends Command
             $output->writeln("[".
                 $choice->choice_id."] ".
                 $choice->choice);
-            $associated = Contacts::find($choice->choice_id);
+            $associated = Contacts::where('choice_id', $choice->choice_id)->first();
             if ($associated) {
                 $question = new Prompt('Keep this association? ([yes]/no) ', 'yes');
                 $question->setAutocompleterValues(['yes', 'no']);
@@ -50,6 +50,7 @@ class AssociateDevangelsCommand extends Command
                 }
             }
 
+            var_dump($associated);
             $question = new Prompt('What developer evangelist name should we associate with this choice? ');
             $name = $helper->ask($input, $output, $question);
             $question = new Prompt('What email address should we associate with this developer evangelist? ');
