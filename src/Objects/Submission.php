@@ -316,6 +316,9 @@ class Submission extends Eloquent
                         $items[] = $choice->choice;
                     }
                 }
+                if (empty($items)) {
+                    continue;
+                }
                 $missingMinimums[] = [
                     'question' => $question->question,
                     'items' => $items
