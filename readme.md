@@ -11,9 +11,10 @@ Installation
 3. add surveymonkey and sendgrid api info to .env
 4. add survey_id to .env
     * if you don't yet have the survey_id, you can retrieve it using curl through your console:
-    ```bash
+```bash
     curl -i -X GET -H "Authorization:bearer YOUR_BEARER_TOKEN" -H "Content-Type": "application/json" https://api.surveymonkey.com/v3/surveys -d '{"title":"YOUR_SURVEY_TITLE"}'
 ```
+
 5. create the database structure: php command.php db:migrate
 
 Setup
