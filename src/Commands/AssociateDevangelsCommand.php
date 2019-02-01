@@ -50,13 +50,12 @@ class AssociateDevangelsCommand extends Command
                 }
             }
 
-            var_dump($associated);
             $question = new Prompt('What developer evangelist name should we associate with this choice? ');
             $name = $helper->ask($input, $output, $question);
             $question = new Prompt('What email address should we associate with this developer evangelist? ');
             $email = $helper->ask($input, $output, $question);
 
-            $contact = new Contacts();
+            $contact = Contacts::firstOrNew(['choice_id' => $choice->choice_id]);
             $contact->choice_id = $choice->choice_id;
             $contact->name = $name;
             $contact->email = $email;
