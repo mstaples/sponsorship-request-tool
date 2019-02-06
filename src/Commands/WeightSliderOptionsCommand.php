@@ -50,7 +50,7 @@ class WeightSliderOptionsCommand extends Command
                 $questions = [];
                 foreach ($page->questions as $question) {
                     if (strpos($question->prompt_type, 'choice') !== false ||
-                        strpos($question->prompt_subtype, 'single' === false)) {
+                        strpos($question->prompt_subtype, 'single') === false) {
                         continue;
                     }
                     $questions[$question->question_id] = [
