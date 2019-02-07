@@ -163,7 +163,7 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if (getenv('MODE') == 'TEST') {
+        if (false){//getenv('MODE') == 'TEST') {
             $submissions = Submission::all();
         } else {
             $submissions = Submission::where('state', 'unprocessed')->get();

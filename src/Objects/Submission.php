@@ -6,6 +6,10 @@ class Submission extends Eloquent
 {
     // the bias is an attempt to account for the decreased impact we can have per attendee at the larger events
     protected $attendanceRanks = [
+        0 => [
+            'minimum' => 0,
+            'bias' => 0
+        ],
         1 => [
             'minimum' => 100,
             'bias' => -0.25
