@@ -8,6 +8,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question as Prompt;
+
 /**
  * This command allows you to set minimums for levels of slider answer.
  * For example, if you gave a slider 3 levels with minimums of 10, 20, and 80, an answer of 45 would fall between level 2 and level 3 so it would be a 2 point answer.
@@ -29,7 +30,7 @@ class WeightSliderOptionsCommand extends Command
         $options = [];
         if ($questionId) {
             $question = Question::findOrFail($questionId);
-            if ($question->min == NULL) {
+            if ($question->min == null) {
                 $output->writeln("Specified question does not have a slider answer");
                 return [];
             }
@@ -46,7 +47,7 @@ class WeightSliderOptionsCommand extends Command
             $pages = Page::where('minimum', false)
                 ->where('data', false)
                 ->get();
-            foreach($pages as $page) {
+            foreach ($pages as $page) {
                 $questions = [];
                 foreach ($page->questions as $question) {
                     if (strpos($question->prompt_type, 'choice') !== false ||
@@ -75,7 +76,7 @@ class WeightSliderOptionsCommand extends Command
         $helper = $this->getHelper('question');
         $output->writeln("There are not yet any levels associated with this question.");
         $firstMinimum = 0;
-        while($firstMinimum == 0) {
+        while ($firstMinimum == 0) {
             $prompt = new Prompt("What's the minimum value that counts?", 1);
             $response = $helper->ask($input, $output, $prompt);
             if (is_int($response)) {
