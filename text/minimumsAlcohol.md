@@ -1,5 +1,5 @@
 # Alcohol Minimums
-We have a few additional minimums we ask from event which server alcohol.
+We have a few additional minimums we ask from event which serve alcohol.
 ### For the parts of your event or peripheral events where alcohol is provided or expected to be consumed...
 * There are good non-alcoholic options available
 * There are safe transportation options available
