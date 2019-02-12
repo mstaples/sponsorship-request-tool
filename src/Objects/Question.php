@@ -25,17 +25,17 @@ class Question extends Eloquent
 
     public function page()
     {
-        return $this->belongsTo('App\Object\Page', 'page_page_id', 'page_id');
+        return $this->belongsTo(Page::class, 'page_page_id', 'page_id');
     }
 
     public function choices()
     {
-        return $this->hasMany('App\Object\Choice');
+        return $this->hasMany(Choice::class);
     }
 
     public function levels()
     {
-        return $this->hasMany('App\Object\Level');
+        return $this->hasMany(Level::class);
     }
 
     public function getMaxValue()

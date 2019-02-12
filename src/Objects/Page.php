@@ -28,6 +28,6 @@ class Page extends Eloquent
 
     public function questions()
     {
-        return $this->hasMany('App\Object\Question');
+        return $this->hasMany(Question::class);
     }
 }

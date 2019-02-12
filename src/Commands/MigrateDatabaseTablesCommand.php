@@ -1,5 +1,6 @@
 <?php namespace App\Command;
 
+use Illuminate\Database\Schema\Blueprint;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -27,7 +28,7 @@ class MigrateDatabaseTablesCommand extends Command
     {
         // Create the "pages" table
         if (!Db::schema()->hasTable('pages')) {
-            Db::schema()->create('pages', function ($table) {
+            Db::schema()->create('pages', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('page_id')->unique();
                 $table->string('survey_id');
@@ -45,7 +46,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "questions" table
         if (!Db::schema()->hasTable('questions')) {
-            Db::schema()->create('questions', function ($table) {
+            Db::schema()->create('questions', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('page_page_id');
                 $table->string('question');
@@ -65,7 +66,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "choices" table
         if (!Db::schema()->hasTable('choices')) {
-            Db::schema()->create('choices', function ($table) {
+            Db::schema()->create('choices', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('question_question_id');
                 $table->string('choice_id')->unique();
@@ -81,7 +82,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "levels" table
         if (!Db::schema()->hasTable('levels')) {
-            Db::schema()->create('levels', function ($table) {
+            Db::schema()->create('levels', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('question_question_id');
                 $table->integer('level');
@@ -96,7 +97,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "submissions" table
         if (!Db::schema()->hasTable('submissions')) {
-            Db::schema()->create('submissions', function ($table) {
+            Db::schema()->create('submissions', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('respondent_id')->unique();
                 $table->string('survey_id');
@@ -127,7 +128,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "answers" table
         if (!Db::schema()->hasTable('answers')) {
-            Db::schema()->create('answers', function ($table) {
+            Db::schema()->create('answers', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('submission_respondent_id');
                 $table->string('question');
@@ -144,7 +145,7 @@ class MigrateDatabaseTablesCommand extends Command
 
         // Create the "contacts" table
         if (!Db::schema()->hasTable('contacts')) {
-            Db::schema()->create('contacts', function ($table) {
+            Db::schema()->create('contacts', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('choice_id')->unique();
                 $table->string('name');

@@ -36,7 +36,7 @@ class ProcessSubmissionsCommand extends Command
         $this->client = $guzzleClient;
     }
 
-    public function sendEmail($submission, $data, $commitments, $requests)
+    public function sendEmail(Submission $submission, $data, $commitments, $requests)
     {
         $loader = new Twig_Loader_Filesystem('src/Templates');
         $twig = new Twig_Environment($loader, array(
@@ -77,7 +77,7 @@ class ProcessSubmissionsCommand extends Command
         return $response->statusCode();
     }
 
-    public function getBasicData($submission)
+    public function getBasicData(Submission $submission)
     {
         $data = ["short" => [], "long" => []];
         $pages = Page::where('data', true)->get();
@@ -102,7 +102,7 @@ class ProcessSubmissionsCommand extends Command
         return $data;
     }
 
-    public function processMinimums($submission, OutputInterface $output)
+    public function processMinimums(Submission $submission, OutputInterface $output)
     {
         $pages = Page::where('minimum', true)->get();
         $minimums = [
