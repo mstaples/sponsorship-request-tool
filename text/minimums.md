@@ -12,7 +12,7 @@
 * discussed during the opening of the event
 
 ### Code of Conduct contains...
-* clear language on expected behavior including zero tolerance for derogatory language about or harassment of people of color, women, LGBTQ, those with disabilities
+* clear language on expected behavior including zero tolerance for derogatory language about or harassment of people
 * clear language on potential consequences for bad behavior
 * clear language emphasizing intervention and safety
 
