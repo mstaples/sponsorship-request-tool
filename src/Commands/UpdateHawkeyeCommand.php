@@ -46,8 +46,7 @@ class UpdateHawkeyeCommand extends Command
         $response = json_decode($response, true);
 
         $submissions = Submission::where('state', 'processed')->get();
-        foreach ($submissions as $submission)
-        {
+        foreach ($submissions as $submission) {
             $data = [
                 "name" => $submission->event_name,
                 "url" => $submission->url,

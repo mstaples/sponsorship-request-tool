@@ -9,11 +9,8 @@ class Page extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
-
         'survey_id', 'page_id', 'url', 'conference', 'hackathon', 'event', 'minimum', 'data'
-
     ];
 
     protected $attributes = [

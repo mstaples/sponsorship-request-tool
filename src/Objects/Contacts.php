@@ -9,10 +9,7 @@ class Contacts extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
-
         'choice_id', 'name', 'email'
-
     ];
 }

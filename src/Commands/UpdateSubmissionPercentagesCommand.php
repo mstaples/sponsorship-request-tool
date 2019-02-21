@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question as Prompt;
+
 /**
  * This command allows you to update the speaker line up percentages on a submission to match their actual line up.
  * This is useful when an organizer misunderstood the form (entering head count instead of percentage) or in any situation
