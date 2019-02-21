@@ -25,7 +25,7 @@ class ProcessSubmissionsCommand extends Command
 {
     protected $client;
 
-    protected $optOutAnswerText = "Not this time";
+    protected $optOutAnswerTexts = [ "Notthistime", "No", "noneoftheabove"];
 
     // the name of the command (the part after "php command.php")
     protected static $defaultName = 'survey:process-submissions';
@@ -102,45 +102,6 @@ class ProcessSubmissionsCommand extends Command
         return $data;
     }
 
-    public function processMinimums($submission, OutputInterface $output)
-    {
-        $pages = Page::where('minimum', true)->get();
-        $minimums = [
-            'yes' => [],
-            'no' => []
-        ];
-        $conditional = $submission->answers()->where('question_id', getenv('CONDITIONAL_QUESTION_ID'));
-        foreach ($pages as $page) {
-            if ($page->page_id == getenv('CONDITIONAL_PAGE_ID') &&
-                $conditional != 'Yes') {
-                continue;
-            }
-            $questions = $page->questions;
-            foreach ($questions as $question) {
-                if ($question->prompt_type == 'multiple_choice') {
-                    $agreements = $question->choices;
-                    foreach ($agreements as $agreement) {
-                        $answer = $submission->answers()->where('choice_id', $agreement->choice_id)->first();
-                        if (!$answer) {
-                            $minimums['no'][$question->question_id][$agreement->choice_id] = $agreement->choice;
-                            continue;
-                        }
-                        $minimums['yes'][$question->question_id][$agreement->choice_id] = $agreement->choice;
-                    }
-                    continue;
-                }
-                $answer = $submission->answers()->where('question_id', $question->question_id)->first();
-                $output->writeln("Basic Question, not multiple choice: [" .
-                    $question->question_id .
-                    "] ".
-                    $question->question
-                );
-                $output->writeln("Answer: ".$answer->answer);
-            }
-        }
-        return $minimums;
-    }
-
     public function processSliderAnswer(Question $question, Answer $answer)
     {
         $levels = $question->levels()->orderBy('level', 'desc')->get();
@@ -171,8 +132,8 @@ class ProcessSubmissionsCommand extends Command
         foreach ($submissions as $submission)
         {
             // set minimums
-            $minimums = $this->processMinimums($submission, $output);
-            if (empty($minimums['no'])) {
+            $minimums = $submission->getMissingMinimums();
+            if (empty($minimums)) {
                 $submission->minimums = true;
             }
             $submission->save();
@@ -225,10 +186,14 @@ class ProcessSubmissionsCommand extends Command
                         }
 
                         if ($choice->weight == 0) {
-                            // no or request?
-                            if ($answer->answer == $this->optOutAnswerText) {
+                            // surveymonkey seems to inject special chars for spaces sometimes so we remove spaces & special chars for matching
+                            $checkText = preg_replace('/[^A-Za-z0-9]/', '', $answer->answer);
+                            if (in_array($checkText, $this->optOutAnswerTexts)) {
                                 $responses['no'][] = $question->question;
                             } else {
+                                //print $question->question . "\n";
+                                //var_dump($this->optOutAnswerTexts);
+                                //var_dump($answer->answer);
                                 $responses['requests'][] = $question->question;
                             }
                             continue;
@@ -251,7 +216,9 @@ class ProcessSubmissionsCommand extends Command
             // email developer evangelist
             $data = $this->getBasicData($submission);
             $status = $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
-            $submission->state = "processed";
+            if (getenv('MODE') != 'TEST') {
+                $submission->state = "processed";
+            }
             $submission->save();
 
             $output->writeln("Sent out DevAngel email for: ".$submission->event_name . " ($status)");

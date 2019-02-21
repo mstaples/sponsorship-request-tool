@@ -300,35 +300,46 @@ class Submission extends Eloquent
     public function getMissingMinimums()
     {
         $missingMinimums = [];
-        if ($this->minimums) {
-            return $missingMinimums;
-        }
 
         $pages = Page::where('minimum', true)->get();
         $conditional = $this->answers()->where('question_id', getenv('CONDITIONAL_QUESTION_ID'));
+
         foreach ($pages as $page) {
             if ($page->page_id == getenv('CONDITIONAL_PAGE_ID') &&
                 $conditional != 'Yes') {
                 continue;
             }
             foreach ($page->questions as $question) {
-                $items = [];
-                $choices = $question->choices;
-                foreach ($choices as $choice) {
-                    $check = $this->answers()->where('choice_id', $choice->choice_id)->first();
-                    if (empty($check)) {
-                        $items[] = $choice->choice;
+                if ($question->prompt_type == 'multiple_choice') {
+                    $agreements = $question->choices;
+                    foreach ($agreements as $agreement) {
+                        $answer = $this->answers()->where('choice_id', $agreement->choice_id)->first();
+                        if ($agreement->choice == "none of the above" || $agreement->choice == "No") {
+                            continue;
+                        }
+                        if (!$answer) {
+                            $items[] = $agreement->choice;
+                            continue;
+                        }
                     }
+                    if (empty($items)) {
+                        continue;
+                    }
+                    $missingMinimums[] = [
+                        'question' => $question->question,
+                        'items' => $items
+                    ];
+                } else {
+                    $answer = $this->answers()->where('question_id', $question->question_id)->first();
+                    \Log::error("Basic Question, not multiple choice: [" .
+                        $question->question_id .
+                        "] ".
+                        $question->question
+                    );
                 }
-                if (empty($items)) {
-                    continue;
-                }
-                $missingMinimums[] = [
-                    'question' => $question->question,
-                    'items' => $items
-                ];
             }
         }
+
         return $missingMinimums;
     }
 }
