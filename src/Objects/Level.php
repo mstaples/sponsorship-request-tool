@@ -9,7 +9,6 @@ class Level extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
         'question_question_id', 'minimum', 'level'
     ];
@@ -22,5 +21,4 @@ class Level extends Eloquent
     {
         return $this->belongsTo(Question::class, 'question_question_id', 'question_id');
     }
-
 }

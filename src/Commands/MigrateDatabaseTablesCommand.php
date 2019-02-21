@@ -153,7 +153,5 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->timestamps();
             });
         }
-
-
     }
 }
