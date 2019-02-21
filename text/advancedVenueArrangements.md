@@ -1,6 +1,6 @@
 # Advanced Efforts: Venue Arrangements
 
-### Will there be single ocupancy restrooms available?
+### Will there be single occupancy restrooms available?
 * Yes!
 * Not this time
 
@@ -17,5 +17,5 @@
 ### Will maps of the venue be available on the event website?
 * Yes! but only very basic floor plans
 * Yes! including clearly marked stairs, elevators, and useful entrances and exits
-* Yes! including the above and additional details like heavy doors, automatic doors, and clearly marked measurements of door ways and walk ways
+* Yes! including the above and additional details like heavy doors, automatic doors, and clearly marked measurements of doorways and walkways
 * Not this time
