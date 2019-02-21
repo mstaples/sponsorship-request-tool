@@ -9,7 +9,6 @@ class Choice extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
         'question_question_id', 'choice_id', 'choice', 'weight'
     ];
@@ -24,5 +23,4 @@ class Choice extends Eloquent
     {
         return $this->belongsTo('App\Object\Question', 'question_question_id', 'question_id');
     }
-
 }

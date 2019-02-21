@@ -9,11 +9,8 @@ class Question extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
-
         'question', 'page_page_id', 'question_id', 'url', 'prompt_type', 'prompt_subtype', 'min', 'max'
-
     ];
 
     protected $attributes = [

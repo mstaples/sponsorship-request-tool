@@ -84,13 +84,16 @@ class Submission extends Eloquent
     {
         if ($eventType != 'Event') {
             $this->event_type = $eventType;
+
             return;
         }
         if ($this->attendee_estimate > 200 || $this->start_date != $this->end_date) {
             $this->event_type = 'Conference';
             $this->shenanigans = true;
+
             return;
         }
+
         $this->event_type = $eventType;
     }
 
@@ -156,6 +159,7 @@ class Submission extends Eloquent
             $percent = $i / 10;
             $levelMinimums[$i] = floor($this->max_score * $percent);
         }
+
         return $levelMinimums;
     }
 
@@ -195,12 +199,14 @@ class Submission extends Eloquent
         if (array_key_exists($this->event_type, $modifiers)) {
             $estimate = $estimate * $modifiers[$this->event_type];
         }
+
         foreach ($this->attendanceRanks as $each) {
             if ($estimate < $each['minimum']) {
                 break;
             }
             $rank++;
         }
+
         return $rank;
     }
 
@@ -232,9 +238,11 @@ class Submission extends Eloquent
         if (!$this->minimums && $this->recommended_level == 0) {
             return "This $eventType does not meet the minimum diversity and inclusion standards we're hoping for.";
         }
+
         if (!$this->minimums) {
             return "This $eventType does not meet the minimum diversity and inclusion standards we're hoping for, but does seem to be putting in extra effort.";
         }
+
         return "This $eventType is already meeting our minimum standards for diversity and inclusion efforts!";
     }
 
@@ -243,15 +251,18 @@ class Submission extends Eloquent
         if (!$this->minimums && $this->recommended_level == 0) {
             return "It is not recommended we sponsor this event.";
         }
+
         if (!$this->minimums) {
             return "If this event can up some standards a bit, consider a level " .
                 $this->recommended_level .
                 " sponsorship of as much as $".
                 number_format($this->recommended_cash);
         }
+
         if ($this->recommended_level > 1) {
             return "This event seems to be planning a wonderfully diverse and inclusive event. It's recommended you consider a level ".$this->recommended_level . " sponsorship for this event, valued around $".number_format($this->recommended_cash).".";
         }
+
         return "This event seems to be planning a nice event. It's recommended you consider a level ".$this->recommended_level . " sponsorship for this event, valued around $".number_format($this->recommended_cash).".";
     }
 

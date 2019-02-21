@@ -9,7 +9,6 @@ class Answer extends Eloquent
      *
      * @var array
      */
-
     protected $fillable = [
         'respondent_id', 'question_id', 'choice_id', 'question', 'answer'
     ];
@@ -18,5 +17,4 @@ class Answer extends Eloquent
     {
         return $this->belongsTo('App\Object\Submission', 'submission_respondent_id', 'respondent_id');
     }
-
 }
