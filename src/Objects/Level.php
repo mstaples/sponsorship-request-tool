@@ -19,6 +19,6 @@ class Level extends Eloquent
 
     public function question()
     {
-        return $this->belongsTo('App\Object\Question', 'question_question_id', 'question_id');
+        return $this->belongsTo(Question::class, 'question_question_id', 'question_id');
     }
 }
