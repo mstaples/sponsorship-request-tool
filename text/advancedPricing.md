@@ -10,7 +10,7 @@
 
 ### Do you have plans for giving free tickets to under represented developers?
 * All our tickets are free
-* Yes! with no upper limit to the tickets we'll award to qualifying appilicants
+* Yes! with no upper limit to the tickets we'll award to qualifying applicants
 * Yes! up to 10% of our maximum available tickets
 * Yes! up to 5% of our maximum available tickets
 * Yes!

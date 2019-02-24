@@ -15,6 +15,6 @@ class Answer extends Eloquent
 
     public function submission()
     {
-        return $this->belongsTo('App\Object\Submission', 'submission_respondent_id', 'respondent_id');
+        return $this->belongsTo(Submission::class, 'submission_respondent_id', 'respondent_id');
     }
 }

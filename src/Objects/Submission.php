@@ -77,7 +77,7 @@ class Submission extends Eloquent
 
     public function answers()
     {
-        return $this->hasMany('App\Object\Answer');
+        return $this->hasMany(Answer::class);
     }
 
     public function setEventType($eventType)
