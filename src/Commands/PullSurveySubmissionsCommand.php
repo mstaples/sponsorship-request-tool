@@ -74,14 +74,20 @@ class PullSurveySubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $headers = [
+        $last = Submission::orderBy('date_modified', 'desc')->first();
+
+        $query = [
             'headers' => [
                 'Authorization' => 'Bearer ' . getenv('SURVEYMONKEY_TOKEN'),
                 'Accept'        => 'application/json',
+            ],
+            'query' => [
+                'status' => 'completed',
+                'start_modified_at' => $last->date_modified
             ]
         ];
 
-        $response = $this->client->request('GET', getenv('SURVEY_ID').'/responses/bulk', $headers)->getBody()->getContents();
+        $response = $this->client->request('GET', getenv('SURVEY_ID').'/responses/bulk', $query)->getBody()->getContents();
         $response = json_decode($response, true);
 
         $submissions = $response['data'];
@@ -91,9 +97,6 @@ class PullSurveySubmissionsCommand extends Command
         ]);
         $submissionCount = 0;
         foreach ($submissions as $each) {
-            if ($each['response_status'] != 'completed') {
-                continue;
-            }
             $submissionCount++;
             $submission = $this->getSubmission($each);
             foreach ($each['pages'] as $page) {

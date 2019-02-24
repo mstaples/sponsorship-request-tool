@@ -321,6 +321,7 @@ class Submission extends Eloquent
                 continue;
             }
             foreach ($page->questions as $question) {
+                $items = [];
                 if ($question->prompt_type == 'multiple_choice') {
                     $agreements = $question->choices;
                     foreach ($agreements as $agreement) {
