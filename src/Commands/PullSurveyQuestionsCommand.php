@@ -113,6 +113,9 @@ class PullSurveyQuestionsCommand extends Command
                 if (strpos($question['family'], 'choice') !== false) {
                     $choices = $question['answers']['choices'];
                     foreach ($choices as $choice) {
+                        if ($choice['visible'] == false) {
+                            continue;
+                        }
                         $choiceId = $choice['id'];
                         $exists = Choice::find($choiceId);
                         if ($exists) {
