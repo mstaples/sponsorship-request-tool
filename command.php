@@ -9,6 +9,7 @@ use App\Command\ProcessSubmissionsCommand;
 use App\Command\PullSurveyQuestionsCommand;
 use App\Command\PullSurveySubmissionsCommand;
 
+use App\Command\SendReportCommand;
 use App\Command\UpdateHawkeyeCommand;
 use App\Command\UpdateSubmissionPercentagesCommand;
 use App\Command\WeightAdvancedOptionsCommand;
@@ -25,6 +26,8 @@ $db = new DB;
 $db->addConnection([
     "driver" => "mysql",
     "host" =>"127.0.0.1",
+    'charset'   => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
     "database" => getenv('DB_NAME'),
     "username" => getenv('DB_USER'),
     "password" => getenv('DB_PASSWORD')
@@ -60,5 +63,6 @@ $application->add(new WeightSliderOptionsCommand());
 $application->add(new ProcessSubmissionsCommand($sendGridClient));
 $application->add(new UpdateSubmissionPercentagesCommand());
 $application->add(new UpdateHawkeyeCommand($hawkeyeClient));
+$application->add(new SendReportCommand($sendGridClient));
 
 $application->run();
