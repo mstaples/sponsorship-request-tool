@@ -10,91 +10,25 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question as Prompt;
 
 /**
- * This command allows you to set minimums for levels of slider answer.
- * For example, if you gave a slider 3 levels with minimums of 10, 20, and 80, an answer of 45 would fall between level 2 and level 3 so it would be a 2 point answer.
+ * This command messages the developer evangelist associated with each event and
+ * requests feedback on specific aspects of that event
+ * based on the original form submission
  */
-class WeightSliderOptionsCommand extends Command
+class RequestEvaluationCommand extends Command
 {
     protected $client;
 
     // the name of the command (the part after "php command.php")
-    protected static $defaultName = 'survey:weight-sliders {question_id?}';
+    protected static $defaultName = 'devangel:request-evaluation';
 
     public function __construct()
     {
         parent::__construct();
     }
 
-    public function getOptions($questionId, OutputInterface $output)
-    {
-        $options = [];
-        if ($questionId) {
-            $question = Question::findOrFail($questionId);
-            if ($question->min == null) {
-                $output->writeln("Specified question does not have a slider answer");
-                return [];
-            }
-            $options[$question->page->page_id] = [
-                'page_title' => $question->page->title,
-                'questions' => [ $question->question_id => [
-                    'question' => $question->question,
-                    'levels' => $question->levels,
-                    'min' => $question->min,
-                    'max' => $question->max
-                ]],
-            ];
-        } else {
-            $pages = Page::where('minimum', false)
-                ->where('data', false)
-                ->get();
-            foreach ($pages as $page) {
-                $questions = [];
-                foreach ($page->questions as $question) {
-                    if (strpos($question->prompt_type, 'choice') !== false ||
-                        strpos($question->prompt_subtype, 'single') === false) {
-                        continue;
-                    }
-                    $questions[$question->question_id] = [
-                        'question' => $question->question,
-                        'levels' => $question->levels()->orderBy('level', 'ASC')->get(),
-                        'min' => $question->min,
-                        'max' => $question->max
-                    ];
-                }
-                $options[$page->page_id] = [
-                    'page_title' => $page->title,
-                    'questions' => $questions
-                ];
-            }
-        }
-
-        return $options;
-    }
-
-    public function createFirstLevel($questionId, InputInterface $input, OutputInterface $output)
-    {
-        $helper = $this->getHelper('question');
-        $output->writeln("There are not yet any levels associated with this question.");
-        $firstMinimum = 0;
-        while ($firstMinimum == 0) {
-            $prompt = new Prompt("What's the minimum value that counts?", 1);
-            $response = $helper->ask($input, $output, $prompt);
-            if (is_int($response)) {
-                $firstMinimum = $response;
-            }
-        }
-        $level = new Level();
-        $level->level = 1;
-        $level->minimum = $firstMinimum;
-        $level->question()->associate(Question::find($questionId));
-        $level->save();
-
-        return $level;
-    }
-
     protected function configure()
     {
-        $this->addArgument('question_id', InputArgument::OPTIONAL, 'ID for a specific question?');
+        //
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)

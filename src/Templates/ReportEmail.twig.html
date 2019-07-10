@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Sponsorship Request Summary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body style="margin: 0; padding: 0;">
+
+<h1>Sponsorship Requests Report</h1>
+{% for event in data %}
+    <h3>{{ event.name }}</h3>
+    <ul>
+        <li>{{ event.startDate }} - {{ event.startDate }}</li>
+    </ul>
+{% endfor %}
+</body>
+</html>

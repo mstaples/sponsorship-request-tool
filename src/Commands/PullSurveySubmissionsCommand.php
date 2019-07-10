@@ -87,7 +87,12 @@ class PullSurveySubmissionsCommand extends Command
             ]
         ];
 
-        $response = $this->client->request('GET', getenv('SURVEY_ID').'/responses/bulk', $query)->getBody()->getContents();
+        try {
+            $response = $this->client->request('GET', getenv('SURVEY_ID').'/responses/bulk', $query)->getBody()->getContents();
+        } catch (\Exception $e) {
+            var_dump($e->getMessage());
+            return;
+        }
         $response = json_decode($response, true);
 
         $submissions = $response['data'];
