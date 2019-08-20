@@ -49,7 +49,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date'
+        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date', 'teamwork_project_id'
 
     ];
 
@@ -70,7 +70,8 @@ class Submission extends Eloquent
         'end_date' => null,
         'event_name' => null,
         'state' => 'unprocessed',
-        'shenanigans' => false
+        'shenanigans' => false,
+        'teamwork_project_id' => null
     ];
 
     public $primaryKey = 'respondent_id';
@@ -273,6 +274,47 @@ class Submission extends Eloquent
         }
 
         return "Shenanigans! This was originally submitted as an Event, but was either too big or over too many days to not be considered a Conference. Since they did not access the Conference advanced D&I efforts options, and so may have a score which fails to accurately reflect their efforts.";
+    }
+
+    public function hasTeamworkProject()
+    {
+        return $this->teamwork_project_id == null ? false : true;
+    }
+
+    public function getDescription()
+    {
+        $answer = Answer::where("submission_respondent_id", $this->respondent_id)
+                    ->where("question_id", getenv('EVENT_DESC_QUESTION_ID'))
+                    ->first();
+        if (!$answer) {
+            return "";
+        }
+        return $answer->answer;
+    }
+
+    public function getBasicData()
+    {
+        $data = ["short" => [], "long" => []];
+        $pages = Page::where('data', true)->get();
+        foreach($pages as $page) {
+            foreach ($page->questions as $question) {
+                $answer = $this->answers()->where('question_id', $question->question_id)->first();
+                if (empty($answer)) {
+                    continue;
+                }
+                if (strlen($question->question) + strlen($answer->answer) < 100) {
+                    $designate = "short";
+                } else {
+                    $designate = "long";
+                }
+                $data[$designate][$question->question_id] = [
+                    'question' => $question->question,
+                    'answer' => $answer->answer
+                ];
+            }
+        }
+
+        return $data;
     }
 
     // return the inline css for the summary recommendation panel

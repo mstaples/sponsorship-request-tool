@@ -68,11 +68,16 @@ class SendReportCommand extends Command
         $submissions = Submission::where('state', 'processed')->orderBy('start_date', 'ASC')->get();
         $reportData = [];
         foreach ($submissions as $submission) {
+            $last_change = strtotime($submission->date_modified);
+            if (date("Y", $last_change) < date("Y")) {
+                continue;
+            }
+            if (date("n") - 4 > date("n", $last_change)) {
+                continue;
+            }
             $reportData[] = [
                 "name" => $submission->event_name,
-                "eventType" => $submission->event_type,
-                "startDate" => Carbon::parse($submission->start_date)->format("M d Y"),
-                "endDate" => Carbon::parse($submission->end_date)->format("M d Y")
+                'basics' => $submission->getBasicData()
             ];
         }
 

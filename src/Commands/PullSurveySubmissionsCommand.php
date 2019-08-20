@@ -116,6 +116,13 @@ class PullSurveySubmissionsCommand extends Command
                             $new->question_id = $question['id'];
                             $new->question = $questionText;
 
+                            //$output->writeln("$questionText");
+                            //$output->writeln("$answer_type");
+
+                            if ($answer_type == "tag_data") {
+                                continue;
+                            }
+
                             if ($answer_type == 'text') {
                                 $exists = $submission->answers()
                                     ->where('question_id', $question['id'])

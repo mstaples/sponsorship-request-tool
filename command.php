@@ -12,8 +12,10 @@ use App\Command\PullSurveySubmissionsCommand;
 use App\Command\SendReportCommand;
 use App\Command\UpdateHawkeyeCommand;
 use App\Command\UpdateSubmissionPercentagesCommand;
+use App\Command\UpdateTeamworkCommand;
 use App\Command\WeightAdvancedOptionsCommand;
 use App\Command\WeightSliderOptionsCommand;
+
 use Symfony\Component\Console\Application;
 use GuzzleHttp\Client;
 use Dotenv\Dotenv;
@@ -37,18 +39,24 @@ $db->setAsGlobal();
 $db->bootEloquent();
 
 $surveyMonkeyClient = new Client([
-    // Base URI is used with relative requests
     'base_uri' => getenv('SURVEYMONKEY_URL'),
-    // You can set any number of default request options.
     'timeout'  => 8.0,
 ]);
+
 $sendGridClient = new Client([
     'base_uri' => getenv('SENDGRID_URL'),
     'timeout'  => 8.0,
 ]);
+
 $hawkeyeClient = new Client([
     'base_uri' => getenv('HAWKEYE_URL'),
     'timeout'  => 8.0,
+]);
+
+$teamWorkClient = new Client([
+    'base_uri' => getenv('TEAMWORK_URL'),
+    'timeout'  => 8.0,
+    'auth' => [ getenv('TEAMWORK_KEY'), 'dead_lugosi' ]
 ]);
 
 $application = new Application();
@@ -63,6 +71,7 @@ $application->add(new WeightSliderOptionsCommand());
 $application->add(new ProcessSubmissionsCommand($sendGridClient));
 $application->add(new UpdateSubmissionPercentagesCommand());
 $application->add(new UpdateHawkeyeCommand($hawkeyeClient));
+$application->add(new UpdateTeamworkCommand($teamWorkClient));
 $application->add(new SendReportCommand($sendGridClient));
 
 $application->run();

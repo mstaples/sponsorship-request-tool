@@ -9,10 +9,25 @@
 
 <h1>Sponsorship Requests Report</h1>
 {% for event in data %}
-    <h3>{{ event.name }}</h3>
-    <ul>
-        <li>{{ event.startDate }} - {{ event.startDate }}</li>
-    </ul>
+    <h2>{{ event.name }}</h2>
+    <h3>Basic Info</h3>
+    <table>
+        {% for each in event.basics["short"] %}
+        <tr>
+            <td>{{ each.question }}</td>
+            <td>{{ each.answer }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <table>
+        {% for each in event.data["long"] %}
+        <tr>
+            <td style="font-weight: bold;">{{ each.question }}</td>
+        </tr><tr>
+        <td>{{ each.answer }}</td>
+    </tr>
+        {% endfor %}
+    </table>
 {% endfor %}
 </body>
 </html>

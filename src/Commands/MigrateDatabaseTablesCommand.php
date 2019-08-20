@@ -120,6 +120,7 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->integer('recommended_level');
                 $table->integer('recommended_cash');
                 $table->integer('requests');
+                $table->string('teamwork_project_id')->nullable();
                 $table->timestamp('start_date')->nullable();
                 $table->timestamp('end_date')->nullable();
                 $table->timestamps();
@@ -150,6 +151,7 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('choice_id')->unique();
                 $table->string('name');
                 $table->string('email');
+                $table->string('teamwork_id')->unique()->nullable();
                 $table->timestamps();
             });
         }

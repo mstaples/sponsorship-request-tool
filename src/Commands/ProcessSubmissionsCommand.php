@@ -39,6 +39,9 @@ class ProcessSubmissionsCommand extends Command
 
     public function sendEmail(Submission $submission, $data, $commitments, $requests)
     {
+        if (getenv('MODE') == 'TEST') {
+            return '200';
+        }
         $loader = new Twig_Loader_Filesystem('src/Templates');
         $twig = new Twig_Environment($loader, array(
             'cache' => 'src/Templates/cache',
@@ -78,31 +81,6 @@ class ProcessSubmissionsCommand extends Command
         return $response->statusCode();
     }
 
-    public function getBasicData(Submission $submission)
-    {
-        $data = ["short" => [], "long" => []];
-        $pages = Page::where('data', true)->get();
-        foreach($pages as $page) {
-            foreach ($page->questions as $question) {
-                $answer = $submission->answers()->where('question_id', $question->question_id)->first();
-                if (empty($answer)) {
-                    continue;
-                }
-                if (strlen($question->question) + strlen($answer->answer) < 100) {
-                    $designate = "short";
-                } else {
-                    $designate = "long";
-                }
-                $data[$designate][$question->question_id] = [
-                    'question' => $question->question,
-                    'answer' => $answer->answer
-                ];
-            }
-        }
-
-        return $data;
-    }
-
     public function processSliderAnswer(Question $question, Answer $answer)
     {
         $levels = $question->levels()->orderBy('level', 'desc')->get();
@@ -125,11 +103,11 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if (getenv('MODE') == 'TEST') {
+        //if (getenv('MODE') == 'TEST') {
             $submissions = Submission::limit(10)->get();
-        } else {
+        //} else {
             $submissions = Submission::where('state', 'unprocessed')->get();
-        }
+        //}
         foreach ($submissions as $submission)
         {
             // set minimums
@@ -215,7 +193,7 @@ class ProcessSubmissionsCommand extends Command
             $submission->save();
 
             // email developer evangelist
-            $data = $this->getBasicData($submission);
+            $data = $submission->getBasicData();
             $status = $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
             if (getenv('MODE') != 'TEST') {
                 $submission->state = "processed";
