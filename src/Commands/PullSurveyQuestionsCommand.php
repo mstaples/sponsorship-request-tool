@@ -1,6 +1,7 @@
 <?php namespace App\Command;
 
 use App\Object\Choice;
+use App\Object\Condition;
 use App\Object\Page;
 use App\Object\Question;
 use Symfony\Component\Console\Command\Command;
@@ -34,23 +35,26 @@ class PullSurveyQuestionsCommand extends Command
         $this->client = $guzzleClient;
     }
 
-    public function getPage($apiPageRecord)
+    public function createConditions($conditions)
     {
-        $exists = Page::find($apiPageRecord['id']);
-        if ($exists) {
-            return $exists;
+        $cond = 0;
+        foreach ($conditions as $questionId => $each) {
+            $each = $each[0][0];
+            $condition = new Condition();
+            $condition->question_question_id = $questionId;
+            $condition->condition_question_id = $each['QuestionID'];
+            $condition->condition_state = $each["Operator"];
+
+            $choice = $each['LeftOperand'];
+            $choiceBlocks = explode('/', $choice);
+            $choiceId = array_pop($choiceBlocks);
+
+            $condition->condition_choice = $questionId . "c" . $choiceId;
+            $condition->save();
+            $cond++;
         }
 
-        $new = new Page();
-        $new->title = strip_tags($apiPageRecord['title']);
-        $new->survey_id = getenv('SURVEY_ID');
-        $new->description = strip_tags($apiPageRecord['description']);
-        $new->page_id = $apiPageRecord['id'];
-        $new->url = $apiPageRecord['href'];
-        $new->save();
-        $exists = Page::find($apiPageRecord['id']);
-
-        return $exists;
+        return $cond;
     }
 
     protected function configure()
@@ -62,74 +66,63 @@ class PullSurveyQuestionsCommand extends Command
     {
         $headers = [
             'headers' => [
-                'Authorization' => 'Bearer ' . getenv('SURVEYMONKEY_TOKEN'),
+                'X-API-TOKEN' => getenv('QUALTRICS_TOKEN'),
                 'Accept'        => 'application/json',
             ]
         ];
 
-        $response = $this->client->request('GET', getenv('SURVEY_ID').'/details', $headers)->getBody()->getContents();
+        $url = 'survey-definitions/'.getenv('SURVEY_ID').'/questions';
+        $response = $this->client->request('GET', $url, $headers)->getBody()->getContents();
         $response = json_decode($response, true);
 
-        $pages = $response['pages'];
+        $questions = $response['result']['elements'];
         $output->writeln([
             'Pull Survey Questions',
             '============'
         ]);
-        $pageCount = 0;
         $questionCount = 0;
-        foreach ($pages as $each) {
-            $page = $this->getPage($each);
-            $pageCount++;
+        $conditions = [];
 
-            //$output->writeln("Pulling data from page: ".strip_tags($page->title));
-            foreach ($each['questions'] as $question) {
-                $questionCount++;
-                $questionId = $question['id'];
+        foreach ($questions as $key=>$each) {
+            $questionId = $each['QuestionID'];
+            $questionType = $each['QuestionType'];
 
-                $record = Question::find($questionId);
-                if (!$record) {
-                    $record = new Question();
-                    $record->question_id = $question['id'];
-                    $record->url = $question['href'];
-                    $record->question = strip_tags($question['headings'][0]['heading']);
-                    $record->prompt_type = $question['family'];
-                    $record->prompt_subtype = $question['subtype'];
+            $questionCount++;
+            $record = Question::find($questionId);
+            if (!$record) {
+                $record = new Question();
+                $record->question_id = $questionId;
+                $record->question = $each['QuestionDescription'];
+                $record->prompt_type = $questionType;
+                $record->prompt_subtype = $each['Selector'];
+                $record->save();
+            }
 
-                    $record->page()->associate($page);
-                    $record->save();
-                }
-                if (strpos($question['family'], 'choice') == false &&
-                    strpos($question['subtype'], 'single') !== false) {
-                    if ($question["validation"] == NULL) {
+            if (array_key_exists('DisplayLogic', $each)) {
+                $record->conditional = true;
+                $conditions[$questionId] = $each['DisplayLogic'];
+            }
+
+            if ($questionType == 'MC') {
+                $choices = $each['Choices'];
+                foreach ($choices as $id => $choice) {
+                    $choiceId = $questionId . "c" . $id;
+                    $exists = Choice::find($choiceId);
+                    if ($exists) {
                         continue;
                     }
-                    $record->min = $question["validation"]['min'];
-                    $record->max = $question["validation"]['max'];
-                    $record->save();
-
-                    continue;
-                }
-
-                if (strpos($question['family'], 'choice') !== false) {
-                    $choices = $question['answers']['choices'];
-                    foreach ($choices as $choice) {
-                        if ($choice['visible'] == false) {
-                            continue;
-                        }
-                        $choiceId = $choice['id'];
-                        $exists = Choice::find($choiceId);
-                        if ($exists) {
-                            continue;
-                        }
-                        $add = new Choice();
-                        $add->choice_id = $choiceId;
-                        $add->choice = $choice['text'];
-                        $add->question()->associate(Question::find($questionId));
-                        $add->save();
-                    }
+                    var_dump($questionId);
+                    //var_dump($record == Question::find($questionId));
+                    $add = new Choice();
+                    $add->choice_id = $choiceId;
+                    $add->choice = $choice['Display'];
+                    $add->question_question_id = $questionId;
+                    $add->save();
                 }
             }
         }
-        $output->writeln("Pulled $pageCount pages with a total of $questionCount questions.");
+
+        $conditions = $this->createConditions($conditions);
+        $output->writeln("Pulled a total of $questionCount questions, $conditions with conditions.");
     }
 }

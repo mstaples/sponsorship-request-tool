@@ -43,6 +43,11 @@ $surveyMonkeyClient = new Client([
     'timeout'  => 8.0,
 ]);
 
+$qualtricsClient = new Client([
+    'base_uri' => getenv('QUALTRICS_URL'),
+    'timeout'  => 8.0,
+]);
+
 $sendGridClient = new Client([
     'base_uri' => getenv('SENDGRID_URL'),
     'timeout'  => 8.0,
@@ -61,8 +66,8 @@ $teamWorkClient = new Client([
 
 $application = new Application();
 
-$application->add(new PullSurveyQuestionsCommand($surveyMonkeyClient));
-$application->add(new PullSurveySubmissionsCommand($surveyMonkeyClient));
+$application->add(new PullSurveyQuestionsCommand($qualtricsClient));
+$application->add(new PullSurveySubmissionsCommand($qualtricsClient));
 $application->add(new MigrateDatabaseTablesCommand());
 $application->add(new AssociateSurveyPageCommand());
 $application->add(new AssociateDevangelsCommand());

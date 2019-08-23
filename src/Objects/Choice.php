@@ -10,7 +10,7 @@ class Choice extends Eloquent
      * @var array
      */
     protected $fillable = [
-        'question_question_id', 'choice_id', 'choice', 'weight'
+        'question_question_id', 'choice', 'weight', 'choice_id'
     ];
 
     protected $attributes = [

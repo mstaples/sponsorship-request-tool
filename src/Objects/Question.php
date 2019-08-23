@@ -10,20 +10,14 @@ class Question extends Eloquent
      * @var array
      */
     protected $fillable = [
-        'question', 'page_page_id', 'question_id', 'url', 'prompt_type', 'prompt_subtype', 'min', 'max'
+        'question', 'question_id', 'prompt_type', 'prompt_subtype', 'conditional'
     ];
 
     protected $attributes = [
-        'min' => null,
-        'max' => null
+        'conditional' => false
     ];
 
     public $primaryKey = 'question_id';
-
-    public function page()
-    {
-        return $this->belongsTo(Page::class, 'page_page_id', 'page_id');
-    }
 
     public function choices()
     {

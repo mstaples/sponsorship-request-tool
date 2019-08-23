@@ -26,20 +26,14 @@ class MigrateDatabaseTablesCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        // Create the "pages" table
-        if (!Db::schema()->hasTable('pages')) {
-            Db::schema()->create('pages', function (Blueprint $table) {
+        // Create the "conditions" table
+        if (!Db::schema()->hasTable('conditions')) {
+            Db::schema()->create('conditions', function (Blueprint $table) {
                 $table->increments('id');
-                $table->string('page_id')->unique();
-                $table->string('survey_id');
-                $table->string('title');
-                $table->text('description');
-                $table->string('url');
-                $table->boolean('conference');
-                $table->boolean('hackathon');
-                $table->boolean('event');
-                $table->boolean('minimum');
-                $table->boolean('data');
+                $table->string('question_question_id');
+                $table->string('condition_question_id');
+                $table->string('condition_state');
+                $table->string('condition_choice');
                 $table->timestamps();
             });
         }
@@ -48,19 +42,12 @@ class MigrateDatabaseTablesCommand extends Command
         if (!Db::schema()->hasTable('questions')) {
             Db::schema()->create('questions', function (Blueprint $table) {
                 $table->increments('id');
-                $table->string('page_page_id');
                 $table->string('question');
                 $table->string('question_id')->unique();
                 $table->string('prompt_type');
                 $table->string('prompt_subtype');
-                $table->integer('min')->nullable();
-                $table->integer('max')->nullable();
-                $table->string('url');
+                $table->boolean('conditional');
                 $table->timestamps();
-
-                $table->foreign('page_page_id')
-                    ->references('page_id')->on('pages')
-                    ->onDelete('cascade');
             });
         }
 
@@ -100,7 +87,7 @@ class MigrateDatabaseTablesCommand extends Command
             Db::schema()->create('submissions', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('respondent_id')->unique();
-                $table->string('survey_id');
+                $table->string('qualtrics_id');
                 $table->string('event_type')->nullable();
                 $table->string('event_name')->nullable();
                 $table->string('url');
