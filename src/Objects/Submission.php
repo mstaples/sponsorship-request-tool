@@ -49,7 +49,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'survey_id', 'respondent_id', 'date_modified', 'total_time', 'analyze_url', 'event_type', 'url', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date', 'teamwork_project_id'
+        'respondent_id', 'date_modified', 'total_time', 'event_type', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date', 'teamwork_project_id'
 
     ];
 
@@ -72,6 +72,11 @@ class Submission extends Eloquent
         'state' => 'unprocessed',
         'shenanigans' => false,
         'teamwork_project_id' => null
+    ];
+
+    // Eloquent will auto-cast keys as ints if this is not definedv
+    protected $casts = [
+        'respondent_id' => 'string'
     ];
 
     public $primaryKey = 'respondent_id';
@@ -124,13 +129,6 @@ class Submission extends Eloquent
         // set event type
         $answer = $this->answers()->where('question_id', getenv('EVENT_TYPE_QUESTION_ID'))->first();
         $this->event_type = $answer->answer;
-
-        // set start date and end date
-        $s = $this->answers()->where('question_id', getenv('START_DATE_QUESTION_ID'))->first();
-        $this->start_date = date('Y-m-d H:i:s', strtotime($s->answer));
-
-        $e = $this->answers()->where('question_id', getenv('END_DATE_QUESTION_ID'))->first();
-        $this->end_date = date('Y-m-d H:i:s', strtotime($e->answer));
 
         // set devangel name & email
         $answer = $this->answers()->where('question_id', getenv('DEVANGEL_QUESTION_ID'))->first();

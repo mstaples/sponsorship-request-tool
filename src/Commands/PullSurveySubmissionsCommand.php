@@ -4,12 +4,14 @@ use App\Object\Answer;
 use App\Object\Choice;
 use App\Object\Page;
 use App\Object\Submission;
+use GuzzleHttp\Exception\ClientException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use GuzzleHttp\Client;
 
 use App\Object\Question;
+use ZipArchive;
 
 /**
  * This command
@@ -31,23 +33,23 @@ class PullSurveySubmissionsCommand extends Command
         $this->client = $guzzleClient;
     }
 
-    public function getSubmission($apiSubmissionRecord)
+    public function getSubmission($apiSubmissionRecordId, $values)
     {
-        $exists = Submission::find($apiSubmissionRecord['id']);
+        $exists = Submission::find($apiSubmissionRecordId);
         if ($exists) {
             return $exists;
         }
-
+        //YYYY-MM-DD HH:MM:SS
         $new = new Submission();
-        $new->respondent_id = $apiSubmissionRecord['id'];
-        $new->total_time = $apiSubmissionRecord['total_time'];
-        $new->url = $apiSubmissionRecord['analyze_url'];
-        $new->date_modified = $apiSubmissionRecord['date_modified'];
-        $new->survey_id = getenv('SURVEY_ID');
+        $new->respondent_id = $apiSubmissionRecordId;
+        $new->total_time = $values['duration'];
+        $new->date_modified = date("Y-m-d H:i:s", strtotime($values['recordedDate']));
+        $new->start_date = date("Y-m-d H:i:s", strtotime($values['startDate']));
+        $new->end_date = date("Y-m-d H:i:s", strtotime($values['endDate']));
         $new->state = "unprocessed";
         $new->save();
 
-        return Submission::find($apiSubmissionRecord['id']);
+        return Submission::find($apiSubmissionRecordId);
     }
 
     public function getQuestion($questionId)
@@ -56,15 +58,9 @@ class PullSurveySubmissionsCommand extends Command
             return $this->questionLibrary[$questionId];
         }
         $record = Question::find($questionId);
-        $this->questionLibrary[$questionId] = $record->question;
+        $this->questionLibrary[$questionId] = $record;
 
         return $this->questionLibrary[$questionId];
-    }
-
-    public function getPageTitle($pageId)
-    {
-        $page = Page::find($pageId);
-        return $page->title;
     }
 
     protected function configure()
@@ -74,87 +70,163 @@ class PullSurveySubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $last = Submission::orderBy('date_modified', 'desc')->first();
+        //$last = Submission::orderBy('date_modified', 'desc')->first();
 
-        $query = [
-            'headers' => [
-                'Authorization' => 'Bearer ' . getenv('SURVEYMONKEY_TOKEN'),
-                'Accept'        => 'application/json',
-            ],
-            'query' => [
-                'status' => 'completed',
-                'start_modified_at' => $last->date_modified
+        $headers =  [
+        'X-API-TOKEN' => getenv('QUALTRICS_TOKEN'),
+        'Accept'      => 'application/json',
+        ];
+
+        $setup = [
+            'headers' => $headers,
+            'json' => [
+                'format' => 'json',
+                'compress' => false,
+                //'seenUnansweredRecode' => -1,
+                //'newlineReplacement' => "%%%"
             ]
         ];
 
-        try {
-            $response = $this->client->request('GET', getenv('SURVEY_ID').'/responses/bulk', $query)->getBody()->getContents();
-        } catch (\Exception $e) {
-            var_dump($e->getMessage());
-            return;
-        }
-        $response = json_decode($response, true);
+        $url = 'surveys/' . getenv('SURVEY_ID') . '/export-responses/';
 
-        $submissions = $response['data'];
         $output->writeln([
             'Pull Survey Submissions',
             '============'
         ]);
+        try {
+            $response = $this->client->request('POST', $url, $setup)->getBody()->getContents();
+            $response = json_decode($response, true);
+            $output->writeln($response['result']['status']);
+
+        } catch (ClientException $e) {
+            $response = $e->getResponse();
+            $output->writeln($response->getBody()->getContents());
+
+            return;
+        }
+
+        $updateUrl = $url . 'ES_3HPVvXMp0lbtZ53';//$response['result']['progressId'];
+        $response = ['result' => ['status' => 'inProgress']];
+        while ($response['result']['status'] != 'complete'
+            && $response['result']['status'] != 'fail') {
+            try {
+                $response = $this->client->request('GET', $updateUrl, ['headers' => $headers])->getBody()->getContents();
+                $response = json_decode($response, true);
+                $output->writeln($response['result']['status']);
+
+            } catch (ClientException $e) {
+                $response = $e->getResponse();
+                $output->writeln($response->getBody()->getContents());
+
+                return;
+            }
+        }
+
+        if ($response['result']['status'] == 'fail') {
+            $output->writeln("Export failed.");
+            var_dump($response);
+
+            return;
+        }
+
+        $fileId = $response["result"]["fileId"];
+        $downloadUrl = $url . $fileId . '/file';
+
+        try {
+            $response = $this->client->request('GET', $downloadUrl, [
+                'headers' => $headers,
+                //'sink' => getenv('LOCAL_PATH') . '/responses.zip'
+            ]);
+        } catch (ClientException $e) {
+            $response = $e->getResponse();
+            $output->writeln($response->getBody()->getContents());
+
+            return;
+        }
+        $responses = \GuzzleHttp\json_decode($response->getBody()->getContents(), true);
+        $responses = $responses['responses'];
+        $hold = [];
+        foreach ($responses as $response) {
+            $hold[$response['responseId']] = $response['values'];
+        }
+
         $submissionCount = 0;
-        foreach ($submissions as $each) {
+
+        foreach ($hold as $responseId => $each) {
             $submissionCount++;
-            $submission = $this->getSubmission($each);
-            foreach ($each['pages'] as $page) {
-                foreach ($page['questions'] as $question) {
-                    $questionId = $question['id'];
-                    $questionText = $this->getQuestion($questionId);
+            $submission = $this->getSubmission($responseId, $each);
+            $attributes = $submission->getAttributes();
+            $respondentId = $attributes['respondent_id'];
+            foreach ($each as $questionId => $answers) {
+                // skip values that aren't submission answers
+                if (strpos($questionId, "QI") !== 0) continue;
 
-                    $answers = $question['answers'];
-                    foreach ($answers as $what) {
-                        foreach ($what as $answer_type => $answer) {
-                            $new = new Answer();
-                            $new->question_id = $question['id'];
-                            $new->question = $questionText;
+                $question = $this->getQuestion($questionId);
+                $new = new Answer();
+                $new->question_id = $questionId;
+                $new->question = $question->question;
+                $new->submission_respondent_id = $respondentId;
 
-                            //$output->writeln("$questionText");
-                            //$output->writeln("$answer_type");
+                $exists = $submission->answers()
+                    ->where('question_id', $questionId)
+                    ->first();
 
-                            if ($answer_type == "tag_data") {
-                                continue;
-                            }
+                if ($exists) continue;
 
-                            if ($answer_type == 'text') {
-                                $exists = $submission->answers()
-                                    ->where('question_id', $question['id'])
-                                    ->first();
-                                if ($exists) {
-                                    continue;
-                                }
-                                $new->answer = $answer;
-                            } elseif ($answer_type == 'row_id') {
-                                continue;
-                            } else {
-                                $choice = Choice::find($answer);
-                                if (!$choice) {
-                                    $output->writeln($questionText);
-                                    $output->writeln("No such choice found! ".$answer);
-                                    break;
-                                }
-                                $exists = $submission->answers()
-                                    ->where('question_id', $question['id'])
-                                    ->where('choice_id', $choice->choice_id)
-                                    ->first();
-                                if ($exists) {
-                                    continue;
-                                }
-                                $new->answer = $choice->choice;
-                                $new->choice_id = $choice->choice_id;
-                            }
-                            $new->submission()->associate($submission);
-                            $new->save();
-                        }
-                    }
+                if ($question->prompt_type !== 'MC') {
+                    $new->answer = $answers;
+                    $new->save();
+
+                    continue;
                 }
+
+                if ($question->prompt_subtype === 'MAVR') {
+                    $output->writeln($question->question);
+                    foreach ($answers as $answer) {
+                        $exists = $submission->answers()
+                            ->where('question_id', $questionId)
+                            ->first();
+
+                        if ($exists) continue;
+
+                        $choiceId = $questionId . 'c' . $answer;
+                        $choice = Choice::find($choiceId);
+                        if (!$choice) {
+                            $output->writeln("No such choice found! " . $choiceId);
+                            break;
+                        }
+
+                        $new = new Answer();
+                        $new->question_id = $questionId;
+                        $new->question = $question->question;
+                        $new->choice_id = $choiceId;
+                        $new->answer = $answer;
+                        $new->submission_respondent_id = $respondentId;
+                        $new->save();
+                    }
+
+                    continue;
+                }
+
+                if ($question->prompt_subtype !== 'SAVR') {
+                    $output->writeln("Unknown prompt subtype: ". $question->prompt_subtype);
+                }
+
+                $choiceId = $questionId . 'c' . $answers;
+                $choice = Choice::find($choiceId);
+                if (!$choice) {
+                    $output->writeln("No such choice found! " . $choiceId);
+                    break;
+                }
+                $exists = $submission->answers()
+                    ->where('question_id', $questionId)
+                    ->where('choice_id', $choiceId)
+                    ->first();
+                if ($exists) continue;
+
+                $new->answer = $choice->choice;
+                $new->choice_id = $choiceId;
+                $new->save();
             }
             $submission->extractBasicData();
         }

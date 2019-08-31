@@ -17,6 +17,11 @@ class Question extends Eloquent
         'conditional' => false
     ];
 
+    // Eloquent will auto-cast keys as ints if this is not defined
+    protected $casts = [
+        'question_id' => 'string'
+    ];
+
     public $primaryKey = 'question_id';
 
     public function choices()

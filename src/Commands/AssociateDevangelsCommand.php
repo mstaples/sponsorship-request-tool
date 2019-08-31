@@ -1,5 +1,6 @@
 <?php namespace App\Command;
 
+use App\Object\Choice;
 use App\Object\Contacts;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -33,8 +34,7 @@ class AssociateDevangelsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $helper = $this->getHelper('question');
-        $question = Question::find(getenv('DEVANGEL_QUESTION_ID'));
-        $choices = $question->choices;
+        $choices = Choice::where('question_question_id', '=', getenv('DEVANGEL_QUESTION_ID'))->get();
 
         foreach ($choices as $choice) {
             $output->writeln("[".

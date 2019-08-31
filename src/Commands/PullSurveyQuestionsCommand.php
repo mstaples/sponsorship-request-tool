@@ -86,13 +86,44 @@ class PullSurveyQuestionsCommand extends Command
         foreach ($questions as $key=>$each) {
             $questionId = $each['QuestionID'];
             $questionType = $each['QuestionType'];
+            $questionText = $each['QuestionDescription'];
+
+            if ($questionType == 'DB') {
+                // DB is Qualtrics designation for a block of descriptive text
+                continue;
+            }
+
+            if ($questionType == 'Slider') {
+                // update questionId format to match how the api delivers survey submission data
+                // save instance for each slider
+                foreach ($each['Choices'] as $sliderKey => $slider) {
+                    $label = $slider['Display'];
+                    $sliderId = $questionId . "_" . $sliderKey;
+                    $questionText .= ': ' . $label;
+                    $record = Question::find($sliderId);
+                    if (!$record) {
+                        $record = new Question();
+                        $record->question_id = $sliderId;
+                        $record->question = $questionText;
+                        $record->prompt_type = $questionType;
+                        $record->prompt_subtype = $each['Selector'];
+                        $record->save();
+                    }
+                }
+                continue;
+            }
+
+            // update questionId format to match how the api delivers survey submission data
+            if ($questionType == 'TE') {
+                $questionId = $questionId . '_TEXT';
+            }
 
             $questionCount++;
             $record = Question::find($questionId);
             if (!$record) {
                 $record = new Question();
                 $record->question_id = $questionId;
-                $record->question = $each['QuestionDescription'];
+                $record->question = $questionText;
                 $record->prompt_type = $questionType;
                 $record->prompt_subtype = $each['Selector'];
                 $record->save();
@@ -104,6 +135,7 @@ class PullSurveyQuestionsCommand extends Command
             }
 
             if ($questionType == 'MC') {
+                // save choice options
                 $choices = $each['Choices'];
                 foreach ($choices as $id => $choice) {
                     $choiceId = $questionId . "c" . $id;
@@ -111,8 +143,7 @@ class PullSurveyQuestionsCommand extends Command
                     if ($exists) {
                         continue;
                     }
-                    var_dump($questionId);
-                    //var_dump($record == Question::find($questionId));
+
                     $add = new Choice();
                     $add->choice_id = $choiceId;
                     $add->choice = $choice['Display'];

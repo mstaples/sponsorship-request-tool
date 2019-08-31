@@ -87,10 +87,8 @@ class MigrateDatabaseTablesCommand extends Command
             Db::schema()->create('submissions', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('respondent_id')->unique();
-                $table->string('qualtrics_id');
                 $table->string('event_type')->nullable();
                 $table->string('event_name')->nullable();
-                $table->string('url');
                 $table->string('total_time');
                 $table->string('date_modified');
                 $table->string('state');

@@ -17,4 +17,11 @@ class Answer extends Eloquent
     {
         return $this->belongsTo(Submission::class, 'submission_respondent_id', 'respondent_id');
     }
+
+    // Eloquent will auto-cast keys as ints if this is not defined
+    protected $casts = [
+        'question_question_id' => 'string',
+        'choice_id' => 'string',
+        'respondent_id' => 'string'
+    ];
 }

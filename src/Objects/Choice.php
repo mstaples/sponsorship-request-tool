@@ -17,6 +17,12 @@ class Choice extends Eloquent
         'weight' => 1
     ];
 
+    // Eloquent will auto-cast keys as ints if this is not definedv
+    protected $casts = [
+        'question_question_id' => 'string',
+        'choice_id' => 'string'
+    ];
+
     public $primaryKey = 'choice_id';
 
     public function question()
