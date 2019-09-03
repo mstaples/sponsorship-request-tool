@@ -69,14 +69,13 @@ $application = new Application();
 $application->add(new PullSurveyQuestionsCommand($qualtricsClient));
 $application->add(new PullSurveySubmissionsCommand($qualtricsClient));
 $application->add(new MigrateDatabaseTablesCommand());
-$application->add(new AssociateSurveyPageCommand());
 $application->add(new AssociateDevangelsCommand());
 $application->add(new WeightAdvancedOptionsCommand());
 $application->add(new WeightSliderOptionsCommand());
 $application->add(new ProcessSubmissionsCommand($sendGridClient));
-$application->add(new UpdateSubmissionPercentagesCommand());
-$application->add(new UpdateHawkeyeCommand($hawkeyeClient));
+// $application->add(new UpdateSubmissionPercentagesCommand()); WIP - on hold
+// $application->add(new UpdateHawkeyeCommand($hawkeyeClient)); WIP - on hold
 $application->add(new UpdateTeamworkCommand($teamWorkClient));
-$application->add(new SendReportCommand($sendGridClient));
+// $application->add(new SendReportCommand($sendGridClient)); WIP - on hold
 
 $application->run();

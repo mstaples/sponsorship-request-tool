@@ -28,41 +28,33 @@ class WeightAdvancedOptionsCommand extends Command
         return ($bool) ? 'true' : 'false';
     }
 
+    // Qualtrics uses string ids which contain an ordered numeric piece
+    // we can extract that piece to determine questions before and after a given point
+    public function getNumericValue($string)
+    {
+        return preg_replace("/[^0-9]/", "", $string);
+    }
+
     public function getOptions($questionId, OutputInterface $output)
     {
         $options = [];
         if ($questionId) {
             $question = Question::findOrFail($questionId);
-            if (strpos($question->prompt_type, 'choice') === false) {
-                $output->writeln("Specified question does not have weighted answer options");
-                return;
-            }
-            $options[$question->page->page_id] = [
-                'page_title' => $question->page->title,
-                'questions' => [ $question->question_id => [
-                    'question' => $question->question,
-                    'choices' => $question->choices
-                ]],
-            ];
+            $options[] = $question;
         } else {
-            $pages = Page::where('minimum', false)
-                ->where('data', false)
-                ->get();
-            foreach($pages as $page) {
-                $questions = [];
-                foreach ($page->questions as $question) {
-                    if (strpos($question->prompt_type, 'choice') === false) {
-                        continue;
-                    }
-                    $questions[$question->question_id] = [
-                        'question' => $question->question,
-                        'choices' => $question->choices
-                    ];
+            $questions = Question::where('prompt_type', '!=', 'TE')
+                    ->where('prompt_type', '!=', 'Slider')->get();
+            $firstAdvancedQuestionId = getenv('EVENT_TYPE_QUESTION_ID');
+            $firstAdvancedQuestionCount = $this->getNumericValue($firstAdvancedQuestionId);
+
+            foreach ($questions as $question) {
+                $qid = $question->question_id;
+
+                // only return advanced standards
+                if ($this->getNumericValue($qid) <= $firstAdvancedQuestionCount) {
+                    continue;
                 }
-                $options[$page->page_id] = [
-                    'page_title' => $page->title,
-                    'questions' => $questions
-                ];
+                $options[] = $question;
             }
         }
 
@@ -80,39 +72,34 @@ class WeightAdvancedOptionsCommand extends Command
         $questionId = $input->getArgument('question_id');
         $options = $this->getOptions($questionId, $output);
 
-        foreach ($options as $option) {
-            $output->writeln("**************************");
-            $output->writeln("[ ".$option['page_title']." ]");
-            $output->writeln("**************************");
-            foreach ($option['questions'] as $question) {
-                $output->writeln("-------------------");
-                $output->writeln($question['question']);
-                $choiceCount = count($question['choices']);
-                $output->writeln("[ weight ] [ choice ]");
-                foreach ($question['choices'] as $choice) {
+        foreach ($options as $question) {
+            $output->writeln("-------------------");
+            $output->writeln($question['question']);
+            $choiceCount = count($question['choices']);
+            $output->writeln("[ weight ] [ choice ]");
+            foreach ($question['choices'] as $choice) {
+                $output->writeln("[". $choice->weight ."] " . $choice->choice);
+            }
+            $prompt = new Prompt("Keep this weighting? ([yes]/no) ", 'yes');
+            $prompt->setAutocompleterValues(['yes', 'no']);
+            $response = $helper->ask($input, $output, $prompt);
+            if ($response == 'yes') {
+                continue;
+            }
+            foreach ($question['choices'] as $choice) {
+                $setting = "unset";
+                $range = range(0, $choiceCount - 1);
+                while (!in_array($setting, $range, true)) {
                     $output->writeln("[". $choice->weight ."] " . $choice->choice);
-                }
-                $prompt = new Prompt("Keep this weighting? ([yes]/no) ", 'yes');
-                $prompt->setAutocompleterValues(['yes', 'no']);
-                $response = $helper->ask($input, $output, $prompt);
-                if ($response == 'yes') {
-                    continue;
-                }
-                foreach ($question['choices'] as $choice) {
-                    $setting = "unset";
-                    $range = range(0, $choiceCount - 1);
-                    while (!in_array($setting, $range, true)) {
-                        $output->writeln("[". $choice->weight ."] " . $choice->choice);
 
-                        $max = $choiceCount - 1;
-                        $message = "Weighting? (0 - $max) [" . $choice->weight . "] ";
+                    $max = $choiceCount - 1;
+                    $message = "Weighting? (0 - $max) [" . $choice->weight . "] ";
 
-                        $prompt = new Prompt($message, $choice->weight);
-                        $setting = (int) $helper->ask($input, $output, $prompt);
-                    }
-                    $choice->weight = $setting;
-                    $choice->save();
+                    $prompt = new Prompt($message, $choice->weight);
+                    $setting = (int) $helper->ask($input, $output, $prompt);
                 }
+                $choice->weight = $setting;
+                $choice->save();
             }
         }
     }

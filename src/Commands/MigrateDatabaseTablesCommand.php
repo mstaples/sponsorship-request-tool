@@ -47,6 +47,8 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('prompt_type');
                 $table->string('prompt_subtype');
                 $table->boolean('conditional');
+                $table->integer('min')->nullable();
+                $table->integer('max')->nullable();
                 $table->timestamps();
             });
         }

@@ -10,11 +10,13 @@ class Question extends Eloquent
      * @var array
      */
     protected $fillable = [
-        'question', 'question_id', 'prompt_type', 'prompt_subtype', 'conditional'
+        'question', 'question_id', 'prompt_type', 'prompt_subtype', 'conditional', 'min', 'max'
     ];
 
     protected $attributes = [
-        'conditional' => false
+        'conditional' => false,
+        'min' => null,
+        'max' => null
     ];
 
     // Eloquent will auto-cast keys as ints if this is not defined

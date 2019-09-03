@@ -1,9 +1,12 @@
 <?php namespace App\Object;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
+use App\Object\Commitment;
 
 class Submission extends Eloquent
 {
+    protected $optOutAnswerTexts = [ "Notthistime", "No", "noneoftheabove"];
+
     // the bias is an attempt to account for the decreased impact we can have per attendee at the larger events
     protected $attendanceRanks = [
         0 => [
@@ -293,23 +296,23 @@ class Submission extends Eloquent
     public function getBasicData()
     {
         $data = ["short" => [], "long" => []];
-        $pages = Page::where('data', true)->get();
-        foreach($pages as $page) {
-            foreach ($page->questions as $question) {
-                $answer = $this->answers()->where('question_id', $question->question_id)->first();
-                if (empty($answer)) {
-                    continue;
-                }
-                if (strlen($question->question) + strlen($answer->answer) < 100) {
-                    $designate = "short";
-                } else {
-                    $designate = "long";
-                }
-                $data[$designate][$question->question_id] = [
-                    'question' => $question->question,
-                    'answer' => $answer->answer
-                ];
+        // all text questions
+        $questions = Question::where('prompt_type', '=', 'TE')->get();
+        foreach ($questions as $question) {
+            $answer = $this->answers()->where('question_id', $question->question_id)->first();
+            if (empty($answer)) {
+                continue;
             }
+            var_dump($answer->answer);
+            if (strlen($question->question) + strlen($answer->answer) < 100) {
+                $designate = "short";
+            } else {
+                $designate = "long";
+            }
+            $data[$designate][$question->question_id] = [
+                'question' => $question->question,
+                'answer' => $answer->answer
+            ];
         }
 
         return $data;
@@ -348,50 +351,137 @@ class Submission extends Eloquent
         return "border-color:#ff0000 !important; color:#000 !important; background-color:#fff0f0 !important";
     }
 
+    // Qualtrics uses string ids which contain an ordered numeric piece
+    // we can extract that piece to determine questions before and after a given point
+    public function getNumericValue($string)
+    {
+        return preg_replace("/[^0-9]/", "", $string);
+    }
+
+    public function getAdvancedCommitments()
+    {
+        $firstAdvancedQuestionId = getenv('EVENT_TYPE_QUESTION_ID');
+        $firstAdvancedQuestionNum = $this->getNumericValue($firstAdvancedQuestionId);
+
+        $max = 0;
+        $commitments = new Commitment();
+        $questions = Question::all();
+        foreach ($questions as $question) {
+            $qid = $question->question_id;
+
+            // only evaluate advanced standards
+            if ($this->getNumericValue($qid) <= $firstAdvancedQuestionNum) {
+                continue;
+            }
+            // submitter didn't see this question
+            if ($question->conditional && !$this->hasCondition($question)) {
+                continue;
+            }
+
+            $max += $question->getMaxValue();
+
+            $answer = $this->answers()->where('question_id', $qid)->first();
+            if (!$answer) {
+                continue;
+            }
+
+            if ($question->prompt_type == 'Slider') {
+                $score = $answer->processSliderAnswer($question);
+                if ($score == 0) {
+                    $commitments->no[] = $question->question;
+                    continue;
+                }
+                $commitments->score += $score;
+                $commitments->appendYes($answer);
+            }
+
+            if ($question->prompt_type == 'MC') {
+                try {
+                    $choice = Choice::findOrFail($answer->choice_id);
+                } catch (\Exception $e) {
+                    error_log("choice id = ".$answer->choice_id);
+                    error_log("prompt type = ".$question->prompt_type);
+                    error_log("no matching choice record found");
+                    error_log(var_dump($e));
+                    continue;
+                }
+
+                if ($choice->weight == 0) {
+                    // SurveyMonkey seemed to inject special chars for spaces sometimes so we remove spaces & special chars for matching
+                    $checkText = preg_replace('/[^A-Za-z0-9]/', '', $answer->answer);
+                    if (in_array($checkText, $this->optOutAnswerTexts)) {
+                        $commitments->no[] = $question->question;
+                    } else {
+                        $commitments->requests[] = $question->question;
+                    }
+                    continue;
+                }
+
+                $commitments->score += $choice->weight;
+                $commitments->appendYes($answer);
+            }
+            // currently advanced questions are all Slider or MC (multiple choice)
+        }
+
+        $commitments->max = $max;
+
+        return $commitments;
+    }
+
     public function getMissingMinimums()
     {
         $missingMinimums = [];
 
-        $pages = Page::where('minimum', true)->get();
-        $conditional = $this->answers()->where('question_id', getenv('CONDITIONAL_QUESTION_ID'));
+        $firstAdvancedQuestionId = getenv('EVENT_TYPE_QUESTION_ID');
+        $firstAdvancedQuestionNum = $this->getNumericValue($firstAdvancedQuestionId);
+        // all not-text questions
+        $questions = Question::where('prompt_type', '!=', 'TE')->get();
 
-        foreach ($pages as $page) {
-            if ($page->page_id == getenv('CONDITIONAL_PAGE_ID') &&
-                $conditional != 'Yes') {
+        foreach ($questions as $question) {
+            $qid = $question->question_id;
+            // only check answers about minimum standards
+            if ($this->getNumericValue($qid) >= $firstAdvancedQuestionNum) {
                 continue;
             }
-            foreach ($page->questions as $question) {
-                $items = [];
-                if ($question->prompt_type == 'multiple_choice') {
-                    $agreements = $question->choices;
-                    foreach ($agreements as $agreement) {
-                        $answer = $this->answers()->where('choice_id', $agreement->choice_id)->first();
-                        if ($agreement->choice == "none of the above" || $agreement->choice == "No") {
-                            continue;
-                        }
-                        if (!$answer) {
-                            $items[] = $agreement->choice;
-                            continue;
-                        }
-                    }
-                    if (empty($items)) {
-                        continue;
-                    }
-                    $missingMinimums[] = [
-                        'question' => $question->question,
-                        'items' => $items
-                    ];
-                } else {
-                    $answer = $this->answers()->where('question_id', $question->question_id)->first();
-                    \Log::error("Basic Question, not multiple choice: [" .
-                        $question->question_id .
-                        "] ".
-                        $question->question
-                    );
+            // minimums questions require some answer,
+            // so if one doesn't exist this is a conditional question the submitter didn't see.
+            $check = Answer::where('question_id', $qid)->first();
+            if (!$check) {
+                continue;
+            }
+
+            if ($qid == getenv('DEVANGEL_QUESTION_ID') ||
+                $qid == getenv('CONDITIONAL_QUESTION_ID')) {
+                continue;
+            }
+
+            $agreements = $question->choices;
+            if (empty($agreements)) {
+                error_log('No choices found for question: ' . $question->question . "($qid)");
+            }
+
+            $items = [];
+            foreach ($agreements as $agreement) {
+                if ($agreement->choice == "none of the above" || $agreement->choice == "No") {
+                    continue;
+                }
+
+                $answer = $this->answers()->where('choice_id', $agreement->choice_id)->first();
+                if (!$answer) {
+                    // submitter did not agree with this statement
+                    $items[] = $agreement->choice;
+                    //var_dump("no agreement: ".$agreement->choice);
+                    continue;
                 }
             }
+            if (empty($items)) {
+                continue;
+            }
+            $missingMinimums[] = [
+                'question' => $question->question,
+                'items' => $items
+            ];
         }
-
         return $missingMinimums;
     }
 }

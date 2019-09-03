@@ -94,6 +94,8 @@ class PullSurveyQuestionsCommand extends Command
             }
 
             if ($questionType == 'Slider') {
+                $min = $each["Configuration"]["CSSliderMin"];
+                $max = $each["Configuration"]["CSSliderMax"];
                 // update questionId format to match how the api delivers survey submission data
                 // save instance for each slider
                 foreach ($each['Choices'] as $sliderKey => $slider) {
@@ -107,6 +109,8 @@ class PullSurveyQuestionsCommand extends Command
                         $record->question = $questionText;
                         $record->prompt_type = $questionType;
                         $record->prompt_subtype = $each['Selector'];
+                        $record->min = $min;
+                        $record->max = $max;
                         $record->save();
                     }
                 }

@@ -25,53 +25,24 @@ class WeightSliderOptionsCommand extends Command
         parent::__construct();
     }
 
-    public function getOptions($questionId, OutputInterface $output)
+    public function getSliders($questionId, OutputInterface $output)
     {
-        $options = [];
+        $sliders = [];
         if ($questionId) {
             $question = Question::findOrFail($questionId);
-            if ($question->min == null) {
+            if ($question->prompt_type != 'Slider') {
                 $output->writeln("Specified question does not have a slider answer");
                 return [];
             }
-            $options[$question->page->page_id] = [
-                'page_title' => $question->page->title,
-                'questions' => [ $question->question_id => [
-                    'question' => $question->question,
-                    'levels' => $question->levels,
-                    'min' => $question->min,
-                    'max' => $question->max
-                ]],
-            ];
+            $sliders[] = $question;
         } else {
-            $pages = Page::where('minimum', false)
-                ->where('data', false)
-                ->get();
-            foreach ($pages as $page) {
-                $questions = [];
-                foreach ($page->questions as $question) {
-                    if (strpos($question->prompt_type, 'choice') !== false ||
-                        strpos($question->prompt_subtype, 'single') === false) {
-                        continue;
-                    }
-                    $questions[$question->question_id] = [
-                        'question' => $question->question,
-                        'levels' => $question->levels()->orderBy('level', 'ASC')->get(),
-                        'min' => $question->min,
-                        'max' => $question->max
-                    ];
-                }
-                $options[$page->page_id] = [
-                    'page_title' => $page->title,
-                    'questions' => $questions
-                ];
-            }
+            $sliders = Question::where('prompt_type', 'Slider')->get();
         }
 
-        return $options;
+        return $sliders;
     }
 
-    public function createFirstLevel($questionId, InputInterface $input, OutputInterface $output)
+    public function createFirstLevel(Question $question, InputInterface $input, OutputInterface $output)
     {
         $helper = $this->getHelper('question');
         $output->writeln("There are not yet any levels associated with this question.");
@@ -86,7 +57,7 @@ class WeightSliderOptionsCommand extends Command
         $level = new Level();
         $level->level = 1;
         $level->minimum = $firstMinimum;
-        $level->question()->associate(Question::find($questionId));
+        $level->question()->associate($question);
         $level->save();
 
         return $level;
@@ -101,57 +72,52 @@ class WeightSliderOptionsCommand extends Command
     {
         $helper = $this->getHelper('question');
         $questionId = $input->getArgument('question_id');
-        $options = $this->getOptions($questionId, $output);
+        $sliders = $this->getSliders($questionId, $output);
 
-        foreach ($options as $option) {
-            if (!empty($option['questions'])) {
-                $output->writeln("**************************");
-                $output->writeln("[ ".$option['page_title']." ]");
-                $output->writeln("**************************");
+        foreach ($sliders as $question) {
+            $questionId = $question->question_id;
+            $output->writeln("-------------------");
+            $output->writeln($question->question .
+                "(" .
+                $question->min .
+                " - " .
+                $question->max .
+                ")");
+
+            if (empty($question->levels())) {
+                $this->createFirstLevel($question, $input, $output);
             }
-            foreach ($option['questions'] as $questionId => $question) {
-                $output->writeln("-------------------");
-                $output->writeln($question['question'] .
-                    "(" .
-                    $question['min'] .
-                    " - " .
-                    $question['max'] .
-                    ")");
 
-                if (empty($question['levels'])) {
-                    $question['levels'][] = $this->createFirstLevel($questionId, $input, $output);
-                }
+            $output->writeln("[ level ] [ minimum ]");
+            foreach ($question->levels() as $level) {
+                $output->writeln("[". $level->level ."] " . $level->minimum);
+            }
+            $prompt = new Prompt("Keep these levels? ([yes]/no) ", 'yes');
+            $prompt->setAutocompleterValues(['yes', 'no']);
+            $response = $helper->ask($input, $output, $prompt);
+            if ($response == 'yes') {
+                continue;
+            }
 
-                $output->writeln("[ level ] [ minimum ]");
-                foreach ($question['levels'] as $level) {
-                    $output->writeln("[". $level->level ."] " . $level->minimum);
+            Level::where('question_question_id', $questionId)->delete();
+            $prompt = new Prompt("How many levels should this slider have? (1 - 5) ");
+            $prompt->setAutocompleterValues([1, 2, 3, 4, 5]);
+            $response = $helper->ask($input, $output, $prompt);
+            $low = $question->min + 1;
+            $high = $question->max;
+            for ($i = 1; $i <= $response; $i++) {
+                $setting = $question->min - 1;
+                while ($setting > $high || $setting < $low) {
+                    $prompt = new Prompt("Minimum for level $i? ($low - $high) ");
+                    $setting = $helper->ask($input, $output, $prompt);
                 }
-                $prompt = new Prompt("Keep these levels? ([yes]/no) ", 'yes');
-                $prompt->setAutocompleterValues(['yes', 'no']);
-                $response = $helper->ask($input, $output, $prompt);
-                if ($response == 'yes') {
-                    continue;
-                }
-                Level::where('question_question_id', $questionId)->delete();
-                $prompt = new Prompt("How many levels should this slider have? (1 - 5) ");
-                $prompt->setAutocompleterValues([1, 2, 3, 4, 5]);
-                $response = $helper->ask($input, $output, $prompt);
-                $low = $question['min'] + 1;
-                $high = $question['max'];
-                for ($i = 1; $i <= $response; $i++) {
-                    $setting = $question['min'] - 1;
-                    while ($setting > $high || $setting < $low) {
-                        $prompt = new Prompt("Minimum for level $i? ($low - $high) ");
-                        $setting = $helper->ask($input, $output, $prompt);
-                    }
-                    $low = $setting + 1;
-                    $level = Level::create([
-                        'question_question_id' => $questionId,
-                        'level' => $i
-                    ]);
-                    $level->minimum = $setting;
-                    $level->save();
-                }
+                $low = $setting + 1;
+                $level = Level::create([
+                    'question_question_id' => $questionId,
+                    'level' => $i
+                ]);
+                $level->minimum = $setting;
+                $level->save();
             }
         }
     }

@@ -105,7 +105,7 @@ class PullSurveySubmissionsCommand extends Command
             return;
         }
 
-        $updateUrl = $url . 'ES_3HPVvXMp0lbtZ53';//$response['result']['progressId'];
+        $updateUrl = $url . $response['result']['progressId'];
         $response = ['result' => ['status' => 'inProgress']];
         while ($response['result']['status'] != 'complete'
             && $response['result']['status'] != 'fail') {
@@ -172,6 +172,10 @@ class PullSurveySubmissionsCommand extends Command
                     ->first();
 
                 if ($exists) continue;
+
+                if ($question->prompt_type == 'Slider') {
+                    // set min & max
+                }
 
                 if ($question->prompt_type !== 'MC') {
                     $new->answer = $answers;

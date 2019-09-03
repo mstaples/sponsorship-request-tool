@@ -2,7 +2,6 @@
 
 use App\Object\Answer;
 use App\Object\Choice;
-use App\Object\Page;
 use App\Object\Submission;
 use SendGrid\Mail\Mail;
 use Symfony\Component\Console\Command\Command;
@@ -26,8 +25,6 @@ class ProcessSubmissionsCommand extends Command
 {
     protected $client;
 
-    protected $optOutAnswerTexts = [ "Notthistime", "No", "noneoftheabove"];
-
     // the name of the command (the part after "php command.php")
     protected static $defaultName = 'survey:process-submissions';
 
@@ -40,7 +37,7 @@ class ProcessSubmissionsCommand extends Command
     public function sendEmail(Submission $submission, $data, $commitments, $requests)
     {
         if (getenv('MODE') == 'TEST') {
-            return '200';
+            // return '200'; //uncomment for testing w/o sending emails
         }
         $loader = new Twig_Loader_Filesystem('src/Templates');
         $twig = new Twig_Environment($loader, array(
@@ -72,28 +69,11 @@ class ProcessSubmissionsCommand extends Command
         $sendgrid = new \SendGrid(getenv('SENDGRID_API_KEY'));
         try {
             $response = $sendgrid->send($email);
-            //print $response->statusCode() . "\n";
-            //print $response->body() . "\n";
         } catch (\Exception $e) {
             return 'Caught exception: '. $e->getMessage() ."\n";
         }
 
         return $response->statusCode();
-    }
-
-    public function processSliderAnswer(Question $question, Answer $answer)
-    {
-        $levels = $question->levels()->orderBy('level', 'desc')->get();
-        $answerValue = $answer->answer;
-        $score = 0;
-        foreach ($levels as $level) {
-            if ($answerValue >= $level->minimum) {
-                $score = $level->level;
-                break;
-            }
-        }
-
-        return $score;
     }
 
     protected function configure()
@@ -103,98 +83,37 @@ class ProcessSubmissionsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        //if (getenv('MODE') == 'TEST') {
+        if (getenv('MODE') == 'TEST') {
             $submissions = Submission::limit(10)->get();
-        //} else {
+        } else {
             $submissions = Submission::where('state', 'unprocessed')->get();
-        //}
+        }
+
         foreach ($submissions as $submission)
         {
             // set minimums
             $minimums = $submission->getMissingMinimums();
             if (empty($minimums)) {
                 $submission->minimums = true;
+            } else {
+                $submission->minimums = false;
             }
             $submission->save();
 
-            // set commitments
-            $advancedPages = Page::where($submission->event_type, true)
-                ->where('minimum', false)
-                ->where('data', false)
-                ->get();
+            // get the advanced commitments and questions
+            // returns Commitment instance
+            $commitments = $submission->getAdvancedCommitments();
 
-            $max = 0;
-            $responses = [
-                'maxScore' => 0,
-                'score' => 0,
-                'yes' => [],
-                'no' => [],
-                'requests' => []
-            ];
-            foreach ($advancedPages as $page) {
-                $questions = $page->questions;
-                foreach ($questions as $question) {
-                    $max += $question->getMaxValue();
-                    $answer = $submission->answers()->where('question_id', $question->question_id)->first();
-                    if (!$answer) {
-                        continue;
-                    }
-                    if (strpos($question->prompt_type, 'choice') === false &&
-                        strpos($question->prompt_subtype, 'single') !== false) {
-                        $score = $this->processSliderAnswer($question, $answer);
-                        if ($score == 0) {
-
-                            $responses['no'][] = $question->question;
-                            continue;
-                        }
-                        $responses['score'] += $score;
-                        $responses['yes'][] = [
-                            'question' => $question->question,
-                            'answer' => $answer->answer
-                        ];
-                    }
-                    if (strpos($question->prompt_type, 'choice') !== false) {
-                        try {
-                            $choice = Choice::findOrFail($answer->choice_id);
-                        } catch (\Exception $e) {
-                            $output->writeln("choice id = ".$answer->choice_id);
-                            $output->writeln("prompt type = ".$question->prompt_type);
-                            $output->writeln("no matching choice record found");
-                            $output->writeln(var_dump($e));
-                            break 3;
-                        }
-
-                        if ($choice->weight == 0) {
-                            // surveymonkey seems to inject special chars for spaces sometimes so we remove spaces & special chars for matching
-                            $checkText = preg_replace('/[^A-Za-z0-9]/', '', $answer->answer);
-                            if (in_array($checkText, $this->optOutAnswerTexts)) {
-                                $responses['no'][] = $question->question;
-                            } else {
-                                //print $question->question . "\n";
-                                //var_dump($this->optOutAnswerTexts);
-                                //var_dump($answer->answer);
-                                $responses['requests'][] = $question->question;
-                            }
-                            continue;
-                        }
-                        $responses['score'] += $choice->weight;
-                        $responses['yes'][] = [
-                            'question' => $question->question,
-                            'answer' => $answer->answer
-                        ];
-                    }
-                }
-            }
-
-            $submission->score = $responses['score'];
-            $submission->max_score = $max;
-            $submission->requests = count($responses['requests']);
+            //var_dump($commitments);
+            $submission->score = $commitments->score;
+            $submission->max_score = $commitments->max;
+            $submission->requests = count($commitments->requests);
             $submission->generateRecommendations();
             $submission->save();
 
             // email developer evangelist
             $data = $submission->getBasicData();
-            $status = $this->sendEmail($submission, $data, $responses['yes'], $responses['requests']);
+            $status = $this->sendEmail($submission, $data, $commitments->yes, $commitments->requests);
             if (getenv('MODE') != 'TEST') {
                 $submission->state = "processed";
             }
