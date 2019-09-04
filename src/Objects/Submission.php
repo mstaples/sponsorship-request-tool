@@ -1,7 +1,7 @@
 <?php namespace App\Object;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
-use App\Object\Commitment;
+use App\Object\Description as Description;
 
 class Submission extends Eloquent
 {
@@ -52,7 +52,7 @@ class Submission extends Eloquent
 
     protected $fillable = [
 
-        'respondent_id', 'date_modified', 'total_time', 'event_type', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'speaker_count', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date', 'teamwork_project_id'
+        'respondent_id', 'date_modified', 'total_time', 'event_type', 'minimums', 'commitments', 'speaker_count', 'attendee_estimate', 'developer_estimate', 'score', 'max_score', 'recommended_level', 'recommended_cash', 'devangel_email', 'last_email', 'state', 'event_name', 'requests', 'shenanigans', 'start_date', 'end_date', 'teamwork_project_id', 'teamwork_content', 'teamwork_description', 'contact_name', 'contact_email', 'contact_phone'
 
     ];
 
@@ -61,6 +61,7 @@ class Submission extends Eloquent
         'commitments' => 0,
         'speaker_count' => 0,
         'attendee_estimate' => 0,
+        'developer_estimate' => 0,
         'score' => 0,
         'max_score' => 0,
         'recommended_level' => 0,
@@ -72,9 +73,14 @@ class Submission extends Eloquent
         'start_date' => null,
         'end_date' => null,
         'event_name' => null,
+        'contact_name' => null,
+        'contact_email' => null,
+        'contact_phone' => null,
         'state' => 'unprocessed',
         'shenanigans' => false,
-        'teamwork_project_id' => null
+        'teamwork_project_id' => null,
+        'teamwork_content' => null,
+        'teamwork_description' => null
     ];
 
     // Eloquent will auto-cast keys as ints if this is not definedv
@@ -123,6 +129,62 @@ class Submission extends Eloquent
         }
     }
 
+    public function getDeveloperAttendeePercent()
+    {
+        $total = $this->attendee_estimate;
+        $devs = $this->developer_estimate;
+
+        $percent = $total/100;
+        $devPercent = $devs / $percent;
+
+        return round($devPercent);
+    }
+
+    public function getAnswer($queryText)
+    {
+        $question = Question::where('question', 'LIKE', "%$queryText%")->firstOrFail();
+        $answer = $this->answers()->where('question_id', $question->question_id)->first();
+
+        if ($answer) {
+            return $answer->answer;
+        }
+
+        return "None";
+    }
+
+    public function getTeamworkDescription()
+    {
+        if ($this->teamwork_description != null) {
+            return $this->teamwork_description;
+        }
+
+        $description = new Description();
+        $description->dateOfRequest = $this->date_modified;
+        $description->eventName = $this->event_name;
+        $description->startDate = date('Y/m/d', $this->start_date);
+        $description->endDate = date('Y/m/d', $this->end_date);
+        $description->url = $this->url;
+        $description->expectedAttendees = $this->attendee_estimate;
+        $description->expectedDeveloperPercentage = $this->getDeveloperAttendeePercent();
+        $description->socialMediaLinks = $this->getAnswer('Social media');
+        $description->eventType = $this->event_type;
+        $description->desc = $this->getAnswer('short description');
+        $description->organizer = $this->contact_name;
+        $description->organzierEmail = $this->contact_email;
+        $description->phoneNumber = $this->contact_phone;
+        $description->pastOrganizer = $this->getAnswer('event in the past');
+        $description->pastPartner = $this->getAnswer('Twilio in the past');
+        $description->prospectusLink = $this->getAnswer('sponsorship prospectus');
+        $description->sponsorshipRequest = $this->getAnswer('kind of sponsorship');
+        $description->venue = $this->getAnswer('Venue (you');
+        $description->location = $this->getAnswer('Where will the event take place');
+
+        $this->teamwork_description = $description->assembleDescription();
+        $this->save();
+
+        return $description;
+    }
+
     public function extractBasicData()
     {
         // set event name
@@ -148,6 +210,18 @@ class Submission extends Eloquent
         if ($answer) {
             $this->attendee_estimate = $answer->answer;
         }
+
+        // set attendee count
+        $answer = $this->answers()->where('question_id', getenv('DEVELOPER_ESTIMATE_QUESTION_ID'))->first();
+        if ($answer) {
+            $this->developer_estimate = $answer->answer;
+        }
+
+        // set contact info
+        $this->contact_name = $this->getAnswer("Who should we");
+        $this->contact_email = $this->getAnswer("What email address");
+        $this->contact_phone = $this->getAnswer("What phone number");
+
         $this->save();
 
         return;
@@ -282,37 +356,88 @@ class Submission extends Eloquent
         return $this->teamwork_project_id == null ? false : true;
     }
 
-    public function getDescription()
+    public function getTags()
     {
-        $answer = Answer::where("submission_respondent_id", $this->respondent_id)
-                    ->where("question_id", getenv('EVENT_DESC_QUESTION_ID'))
-                    ->first();
-        if (!$answer) {
+        $question = Question::where('question', 'LIKE', "%tags%")->firstOrFail();
+        $answers = $this->answers()->where('question_id', $question->question_id)->get();
+
+        if (empty($answer)) {
             return "";
         }
-        return $answer->answer;
+
+        $selected = $this->event_type;
+        foreach ($answers as $answer) {
+            try {
+                $choice = Choice::findOrFail($answer->choice_id);
+            } catch (\Exception $e) {
+                error_log("choice id = ".$answer->choice_id);
+                error_log("prompt type = ".$question->prompt_type);
+                error_log("no matching choice record found");
+                error_log(var_dump($e));
+                continue;
+            }
+            
+            $selected .= ', ' . $choice->choice;
+        }
+
+        return $selected;
     }
 
     public function getBasicData()
     {
         $data = ["short" => [], "long" => []];
-        // all text questions
-        $questions = Question::where('prompt_type', '=', 'TE')->get();
+        $infoIds = explode(',', getenv('INFO_IDS'));
+        $questions = Question::all();
         foreach ($questions as $question) {
-            $answer = $this->answers()->where('question_id', $question->question_id)->first();
-            if (empty($answer)) {
+            $qid = $question->question_id;
+            $numVal = $this->getNumericValue($qid);
+            if (!in_array($numVal, $infoIds)) {
                 continue;
             }
-            var_dump($answer->answer);
-            if (strlen($question->question) + strlen($answer->answer) < 100) {
-                $designate = "short";
-            } else {
-                $designate = "long";
+            $answers = $this->answers()->where('question_id', $question->question_id)->get();
+            if (empty($answers)) {
+                continue;
             }
-            $data[$designate][$question->question_id] = [
-                'question' => $question->question,
-                'answer' => $answer->answer
-            ];
+
+            if ($question->prompt_type == 'MC') {
+                $selected = null;
+                foreach ($answers as $answer) {
+                    try {
+                        $choice = Choice::findOrFail($answer->choice_id);
+                    } catch (\Exception $e) {
+                        error_log("choice id = ".$answer->choice_id);
+                        error_log("prompt type = ".$question->prompt_type);
+                        error_log("no matching choice record found");
+                        error_log(var_dump($e));
+                        continue;
+                    }
+
+                    if ($selected == null) {
+                        $selected = $choice->choice;
+                        continue;
+                    }
+                    $selected .= ', ' . $choice->choice;
+                }
+
+                $data['short'][$question->question_id] = [
+                    'question' => $question->question,
+                    'answer' => $selected
+                ];
+                continue;
+            }
+
+            foreach ($answers as $answer) {
+                if (strlen($question->question) + strlen($answer->answer) < 100) {
+                    $designate = "short";
+                } else {
+                    $designate = "long";
+                }
+
+                $data[$designate][$question->question_id] = [
+                    'question' => $question->question,
+                    'answer' => $answer->answer
+                ];
+            }
         }
 
         return $data;
@@ -360,19 +485,23 @@ class Submission extends Eloquent
 
     public function getAdvancedCommitments()
     {
-        $firstAdvancedQuestionId = getenv('EVENT_TYPE_QUESTION_ID');
-        $firstAdvancedQuestionNum = $this->getNumericValue($firstAdvancedQuestionId);
+        $infoIds = getenv('INFO_IDS');
+        $basicIds = getenv('BASICS_IDS');
+        $skips = $infoIds . ',' . $basicIds;
+        $skips = explode(',', $skips);
 
         $max = 0;
         $commitments = new Commitment();
         $questions = Question::all();
         foreach ($questions as $question) {
             $qid = $question->question_id;
+            $numVal = $this->getNumericValue($qid);
 
             // only evaluate advanced standards
-            if ($this->getNumericValue($qid) <= $firstAdvancedQuestionNum) {
+            if (in_array($numVal, $skips)) {
                 continue;
             }
+
             // submitter didn't see this question
             if ($question->conditional && !$this->hasCondition($question)) {
                 continue;
@@ -432,26 +561,16 @@ class Submission extends Eloquent
     {
         $missingMinimums = [];
 
-        $firstAdvancedQuestionId = getenv('EVENT_TYPE_QUESTION_ID');
-        $firstAdvancedQuestionNum = $this->getNumericValue($firstAdvancedQuestionId);
-        // all not-text questions
-        $questions = Question::where('prompt_type', '!=', 'TE')->get();
-
+        $basicIds = explode(',', getenv('BASIC_IDS'));
+        $questions = Question::all();
         foreach ($questions as $question) {
             $qid = $question->question_id;
-            // only check answers about minimum standards
-            if ($this->getNumericValue($qid) >= $firstAdvancedQuestionNum) {
+            $numVal = $this->getNumericValue($qid);
+            if (!in_array($numVal, $basicIds)) {
                 continue;
             }
-            // minimums questions require some answer,
-            // so if one doesn't exist this is a conditional question the submitter didn't see.
             $check = Answer::where('question_id', $qid)->first();
             if (!$check) {
-                continue;
-            }
-
-            if ($qid == getenv('DEVANGEL_QUESTION_ID') ||
-                $qid == getenv('CONDITIONAL_QUESTION_ID')) {
                 continue;
             }
 

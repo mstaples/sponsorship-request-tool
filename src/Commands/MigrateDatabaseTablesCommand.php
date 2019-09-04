@@ -89,6 +89,9 @@ class MigrateDatabaseTablesCommand extends Command
             Db::schema()->create('submissions', function (Blueprint $table) {
                 $table->increments('id');
                 $table->string('respondent_id')->unique();
+                $table->string('teamwork_project_id')->nullable();
+                $table->string('teamwork_content')->nullable();
+                $table->longText('teamwork_description')->nullable();
                 $table->string('event_type')->nullable();
                 $table->string('event_name')->nullable();
                 $table->string('total_time');
@@ -97,17 +100,20 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('devangel_email')->nullable();
                 $table->string('devangel_name')->nullable();
                 $table->string('last_email')->nullable();
+                $table->string('contact_name')->nullable();
+                $table->string('contact_email')->nullable();
+                $table->string('contact_phone')->nullable();
                 $table->boolean('minimums');
                 $table->boolean('shenanigans');
                 $table->integer('commitments');
                 $table->integer('speaker_count');
                 $table->integer('attendee_estimate');
+                $table->integer('developer_estimate');
                 $table->integer('score');
                 $table->integer('max_score');
                 $table->integer('recommended_level');
                 $table->integer('recommended_cash');
                 $table->integer('requests');
-                $table->string('teamwork_project_id')->nullable();
                 $table->timestamp('start_date')->nullable();
                 $table->timestamp('end_date')->nullable();
                 $table->timestamps();
@@ -138,7 +144,7 @@ class MigrateDatabaseTablesCommand extends Command
                 $table->string('choice_id')->unique();
                 $table->string('name');
                 $table->string('email');
-                $table->string('teamwork_id')->unique()->nullable();
+                $table->string('teamwork_id')->nullable();
                 $table->timestamps();
             });
         }

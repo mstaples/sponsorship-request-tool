@@ -12,7 +12,7 @@ class Commitment extends Eloquent
 
     public function appendYes(Answer $answer)
     {
-        $yes[] = [
+        $this->yes[] = [
             'question' => $answer->question,
             'answer' => $answer->answer
         ];

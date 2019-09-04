@@ -11,8 +11,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 class UpdateTeamworkCommand extends Command
 {
     protected $client;
-    protected $projectOwnerId;
+    protected $twOwnerId;
     protected $adminId;
+    protected $output;
 
     // the name of the command (the part after "php command.php")
     protected static $defaultName = 'survey:update-teamwork';
@@ -21,7 +22,7 @@ class UpdateTeamworkCommand extends Command
     {
         parent::__construct();
         $this->client = $guzzleClient;
-        $this->projectOwnerId = getenv('TEAMWORK_OWNER_ID');
+        $this->twOwnerId = getenv('TEAMWORK_OWNER_ID');
         $this->adminId = getenv('TEAMWORK_ADMIN_ID');
     }
 
@@ -40,8 +41,9 @@ class UpdateTeamworkCommand extends Command
         }
     }
 
-    protected function createProjectId(Submission $submission, OutputInterface $output)
+    protected function createProjectId(Submission $submission)
     {
+        $output = $this->output;
         if ($submission->hasTeamworkProject()) {
             $projectId = $submission->teamwork_project_id;
             $output->writeln("Submission with id ". $submission->id ." already has a teamwork project id: ".$projectId);
@@ -51,23 +53,21 @@ class UpdateTeamworkCommand extends Command
         $response = $this->client->request('POST', 'projects.json', [ 'json' => [
             'project' => [
                 'name' => $this->getTeamWorkEventName($submission),
-                'description' => $submission->getDescription(),
-                "startDate" => $submission->startDate,
-                "endDate" => $submission->endDate,
+                //'description' => $submission->getTeamworkDescription(),
+                "startDate" => date('Ymd', $submission->startDate),
+                "endDate" => date('Ymd', $submission->endDate),
                 "category-id" => $this->getCategoryId($submission),
                 "harvest-timers-enabled" => "true",
-                // "tags" => "tag1,tag2,tag3",
+                "tags" => $submission->getTags(),
                 "replyByEmailEnabled" => "true",
                 "privacyEnabled" => "true"
             ]
         ]])->getBody()->getContents();
         $response = json_decode($response, true);
-        $projectId = $response['id'];
-        $output->writeln(var_dump($projectId));
-        $submission->teamwork_project_id = $projectId;
+        $submission->teamwork_project_id = $response['id'];
         $submission->save();
 
-        return $projectId;
+        return $response['id'];
     }
 
     protected function updateProject($project_id, $update)
@@ -77,18 +77,22 @@ class UpdateTeamworkCommand extends Command
             ->getBody()->getContents();
     }
 
-    protected function linkContactsToTeamwork(OutputInterface $output)
+    protected function linkContactsToTeamwork()
     {
+        $output = $this->output;
+        $output->writeln('link contacts to teamwork');
         // make sure contacts are synced up with their teamwork user
         $people = $this->client->request('GET', 'people.json')->getBody()->getContents();
         $people = json_decode($people, true);
         foreach($people['people'] as $i=>$person) {
-            $contacts = Contacts::where('email', $person['email-address'])->get();
-            if (!empty($contacts)) {
-                $output->writeln(var_dump($person['email-address']));
+            $queryString = '%' . $person['email-address'] . '%';
+            $contacts = Contacts::where('email', 'LIKE', $queryString)->get();
+            if (empty($contacts)) {
+                $output->writeln("No contacts entry found for: " . $person['email-address']);
                 continue;
             }
             foreach($contacts as $contact) {
+                $output->writeln("set teamwork_id to ". $person['id'] . " for " . $contact->name);
                 $contact->teamwork_id = $person['id'];
                 $contact->save();
             }
@@ -137,70 +141,78 @@ class UpdateTeamworkCommand extends Command
         return $name;
     }
 
+    protected function getTeamworkId(Contacts $contact, Submission $submission)
+    {
+        $teamworkId = $contact->teamwork_id;
+        if ($teamworkId == null) {
+            $this->linkContactsToTeamwork();
+            $contact = Contacts::where('email', $submission->devangel_email)->first();
+            $teamworkId = $contact->teamwork_id;
+        }
+
+        return $teamworkId;
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $projectOwnerId = $this->projectOwnerId;
+        $twOwnerId = $this->twOwnerId;
         $adminId = $this->adminId;
+        $creatorId = getenv('TEAMWORK_CREATOR_ID');
+        $incomingRequestsTasklistId = getenv('TEAMWORK_INCOMING_REQUESTS_TASKLIST_ID');
+        $twoWeeks = 60 * 60 * 24 * 14;
+
+        $this->output = $output;
+
         if (getenv('MODE') == 'TEST') {
-            //$testProjects = [ 567331, 567329, 567326, 567325, 567324, 567323, 567322, 567321, 567320, 567319 ];
-            $testProjects = [ 567331, 567329 ];
-            foreach ($testProjects as $id) {
-                $submission = Submission::where('teamwork_project_id', $id)->first();
-                $name = $this->getTeamWorkEventName($submission);
-
-                $contact = Contacts::where('email', $submission->devangel_email)->first();
-                $tw_id = $contact->teamwork_id;
-                $list = $adminId;
-                if ($tw_id != $adminId) {
-                    $list .= ",$tw_id";
-                }
-                $response = $this->client->request('POST', 'projects/'.$id.'/people.json', [
-                    'query' => [
-                        'id' =>  $id
-                    ],
-                    'json' => [
-                        'add' => [
-                            "userIdList"=> $list,
-                        ]
-                    ]
-                ])->getBody()->getContents();
-                $response = json_decode($response, true);
-                $output->writeln("add users: " . $response["STATUS"]);
-
-                $response = $this->client->request('PUT', 'projects/'.$id.'.json', [
-                    'query' => [
-                        'id' =>  $id,
-                    ],
-                    'json' => [
-                        'project' => [
-                            "projectOwnerId"=> "$projectOwnerId",
-                            "name" => $name
-                        ]
-                    ]
-                ])->getBody()->getContents();
-                $response = json_decode($response, true);
-                $output->writeln("update name and owner: " . $response["STATUS"]);
-
-                $response = $this->client->request('GET', 'projects/'.$id.'.json', [ 'query' => [
-                    'includeProjectOwner' => true
-                ]])->getBody()->getContents();
-                $output->writeln(var_dump($response));
-            }
+            $submissionIDs = [ 'R_22tBeb50flRnQl0' ];
+            $submissions = Submission::whereIn('respondent_id', $submissionIDs)->get();
         } else {
             $submissions = Submission::where('teamwork_project_id', null)->get();
-            foreach($submissions as $submission) {
-                $output->writeln($submission->event_name);
-                $project_id = $this->createProjectId($submission, $output);
-                $update = [
-                    "project" => [
-                        "status" => $this->getTeamWorkEventStatus($submission),
-                        "projectOwnerId" => $this->projectOwnerId
-                    ]
-                ];
-                $response = $this->updateProject($project_id, $update);
-                $output->writeln(var_dump($response));
-            }
         }
-        /**/
+
+        foreach ($submissions as $submission) {
+            $name = $this->getTeamWorkEventName($submission);
+            $projectId = $this->createProjectId($submission);
+            $output->writeln("TeamWork Event Name: " . $name . " ($projectId)");
+
+            $contact = Contacts::where('email', $submission->devangel_email)->first();
+            $devangelTeamworkId = $this->getTeamworkId($contact, $submission);
+
+            $list = $adminId .',' . $twOwnerId;
+            if ($devangelTeamworkId != $adminId && $devangelTeamworkId != $twOwnerId) {
+                $list .= ",$devangelTeamworkId";
+            }
+            $output->writeln("owners: " . $list);
+
+            $content = date("Y-m-d", strtotime($submission->start_date)) .
+                ' - ' .
+                date("Y-m-d", strtotime($submission->start_date)) .
+                ' ' . $submission->event_name;
+            $submission->teamwork_content = $content;
+
+            $description = $submission->getTeamworkDescription();
+            $submission->teamwork_description = $description;
+
+            $task = [
+                'tasklistId' => $incomingRequestsTasklistId,
+                'content' => $content,
+                'creator-id' => $creatorId,
+                'responsible-party-id' => $twOwnerId,
+                'comment-follower-ids' => $list,
+                'change-follower-ids' => $list,
+                'start-date' => date('Ymd'),
+                'due-date' => date('Ymd', time() + $twoWeeks),
+                'description' => $description
+            ];
+
+            $response = $this->client->request('POST', 'tasklists/'.$incomingRequestsTasklistId.'/tasks.json', [
+                'json' => [
+                    'todo-item' => $task
+                ]
+            ])->getBody()->getContents();
+            $response = json_decode($response, true);
+            var_dump($response);
+            $output->writeln("create task: " . $response["STATUS"]);
+        }
     }
 }
