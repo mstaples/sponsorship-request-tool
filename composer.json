@@ -3,7 +3,7 @@
         "symfony/console": "^4.2",
         "vlucas/phpdotenv": "^2.5",
         "guzzlehttp/guzzle": "~6.0",
-        "illuminate/database": "^5.7",
+        "illuminate/database": "^6.20",
         "twig/twig": "^2.0",
         "sendgrid/sendgrid": "^7.2"
     },
